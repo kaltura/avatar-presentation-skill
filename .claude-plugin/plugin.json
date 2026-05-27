@@ -5,5 +5,5 @@
   "author": { "name": "Kaltura" },
   "license": "MIT",
   "keywords": ["avatar", "presentation", "kaltura", "interactive", "ai-narrated"],
-  "skills": ["../skills/avatar-deck"]
+  "skills": ["./skills/avatar-deck"]
 }
