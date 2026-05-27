@@ -2014,234 +2014,167 @@ This is covered in detail in Section AA below.
 
 ---
 
-### AA. Claude Code Hooks (Prompt and Agent Hooks) — PLANNED
+### AA. Claude Code Hooks (Implemented — Prompt-Based, Cross-Platform)
 
-> **Status:** The hook architecture below is designed but NOT YET implemented in the skill's YAML frontmatter. Currently, validation is enforced via SKILL.md's "SELF-VALIDATION RULES" section (inline instructions that Claude follows during generation). The hook design below represents the planned evolution — adding automatic enforcement that Claude cannot bypass.
+Hooks are defined in SKILL.md's YAML frontmatter and fire automatically on Claude Code lifecycle events. They enforce invariants that the AI might forget during a long session. The AI cannot bypass them — hooks operate outside the agent's control loop.
 
-Hooks would be defined in the skill's YAML frontmatter and fire automatically on Claude Code lifecycle events. They enforce invariants that the AI might forget during a long session. The AI cannot bypass them — hooks operate outside the agent's control loop.
+**Implementation decision: `type: prompt` only (no `type: command`).**
 
-All hooks use Claude itself as the validator — either `type: "prompt"` (single-turn LLM judgment, no tools, ~30s) or `type: "agent"` (multi-turn subagent with Read/Grep/Glob/Bash access, up to 50 tool calls, ~60s). Zero runtime dependencies. No scripts. No Node.js. No Python.
+| Hook Type | Cross-Platform | Dependencies | Speed |
+|-----------|---------------|--------------|-------|
+| `type: command` (shell script) | macOS/Linux only, fails on native Windows | Needs POSIX shell | ~1s |
+| `type: prompt` (Claude-as-validator) | All platforms (runs inside Claude) | None | ~2-5s |
 
-#### Hook Architecture
+Since the skill must work on macOS, Linux, AND native Windows (no WSL), all hooks use `type: prompt`. This means:
+- Zero runtime dependencies — works everywhere Claude Code runs
+- Semantic understanding — Claude can reason about content, not just regex match
+- No maintenance surface — no hook scripts to test across OS variants
 
-Hooks live in the skill's YAML frontmatter, scoped to the skill's lifetime:
+**Trade-off accepted:** Prompt hooks are slower (~2-5s per invocation) and use tokens. We limit hooks to the 3 highest-impact guards where the cost of missing a violation (leaked secret, broken navigation, incomplete deck processing) far exceeds the performance tax.
+
+**Hooks focus on three critical failure modes observed in production:**
+1. **Secret leakage** — Admin secret accidentally written to a committed file (compliance/security disaster)
+2. **Incomplete deck processing** — Large decks (40-80+ pages) partially processed, with the skill stopping at 20-40 slides (the #1 user complaint)
+3. **Structural/API correctness** — Wrong API paths, violated navigation contracts, modified locked files
+
+All hooks use Claude itself as the validator via `type: "prompt"` (single-turn LLM judgment, no tools needed — content being written is already in `$ARGUMENTS`). Zero runtime dependencies. No scripts. No Node.js. No Python.
+
+#### Implemented Hooks (3 prompt hooks in SKILL.md frontmatter)
 
 ```yaml
----
-name: avatar-deck
 hooks:
   PreToolUse:
     - matcher: "Write|Edit"
       hooks:
         - type: prompt
           prompt: |
-            You are a security gate for avatar presentation files.
-            Analyze this file write operation: $ARGUMENTS
-            
-            BLOCK (return {"ok": false, "reason": "..."}) if ANY of these are true:
-            1. The file path matches **/OBEY_RULES* — this file is LOCKED
-            2. The content contains a 32-character hex string (potential admin secret)
-            3. The content contains any value that looks like a Kaltura partner ID in a credential context
-            4. The file is a slide JSON and is missing required fields: slide, title, category, talking_points
-            5. The file is a slide JSON and category is not one of: financial, legal, strategy, product, overview, section_divider
-            6. The file is a slide JSON and talking_points is not an array of 1-4 items
-            
-            Otherwise return {"ok": true}
-    - matcher: "Write|Edit"
-      if: "Write(**/KNOWLEDGE_BASE_PROMPT*)|Edit(**/KNOWLEDGE_BASE_PROMPT*)"
-      hooks:
-        - type: prompt
-          prompt: |
-            You are a navigation phrase linter for avatar presentations.
-            Analyze this knowledge base write: $ARGUMENTS
-            
-            Navigation commands are parsed by EXACT regex in app.js. Near-misses silently fail.
-            
-            Check the content for any string that LOOKS like a navigation command but doesn't
-            EXACTLY match one of these formats (including the terminal period):
-            - "Navigating to slide [N]."
-            - "Moving to the next slide."
-            - "Going back to the previous slide."
-            
-            Common errors to catch:
-            - "Navigate to slide" (wrong tense — must be "Navigating")
-            - "Go to the next slide" (wrong — must be "Moving to the next slide.")
-            - Missing terminal period on any navigation phrase
-            - Navigation phrases in non-English
-            
-            If you find near-misses, return {"ok": false, "reason": "Line contains near-miss navigation phrase: found '[X]', expected '[Y]'"}
-            If all navigation phrases are correct (or none exist), return {"ok": true}
+            You are a security and structure gate for avatar presentation files.
+            Analyze this file write/edit operation.
+
+            BLOCK (return {"decision": "block", "reason": "..."}) if ANY:
+            1. Path contains "OBEY_RULES" and is inside a project's studio/ dir — LOCKED, never modify per-project copies
+            2. Content contains what appears to be a 32-char hex string (admin secret pattern: [a-f0-9]{32})
+            3. Content contains "KALTURA_ADMIN_SECRET" followed by an actual value (not a ${} reference)
+            4. File is in data/slides/ and missing required fields: slide, title, category, talking_points
+            5. File is in data/slides/ and category not in: financial, legal, strategy, product, overview, section_divider
+            6. File is in data/slides/ and talking_points is not an array of 1-4 items
+            7. File contains a Kaltura API path using "data/action/" or "documents_documents" (wrong service — must be "document_documents")
+            8. Content contains navigation phrase variants like "Let me show you slide", "Here's slide", "Go to slide", "Navigate to slide" — only "Navigating to slide [N]." is valid
+
+            ALLOW (return {"decision": "allow"}) if none of the above apply.
     - matcher: "Bash"
-      if: "Bash(*deploy*)|Bash(*rm -rf*)|Bash(*rm -r*)"
       hooks:
         - type: prompt
           prompt: |
-            You are a deploy safety gate for avatar presentations.
-            Analyze this bash command: $ARGUMENTS
-            
-            BLOCK if ANY of these are true:
-            1. Command contains "rm -rf" or "rm -r" targeting a project directory — return {"ok": false, "reason": "Destructive delete blocked. Use git to discard changes instead."}
-            2. Command is a deploy operation (curl to kaltura.com/api_v3/service/document_documents/action/updateContent) — this is allowed ONLY if the skill has already run validation and version bump in this session.
-            
-            For deploy commands: return {"ok": false, "reason": "Deploy blocked — must run validation and bump version first."} unless you can see from context that these steps completed.
-            Otherwise return {"ok": true}
-  PostToolUse:
-    - matcher: "Write|Edit"
-      if: "Write(data/slides/*)|Edit(data/slides/*)"
-      hooks:
-        - type: agent
-          prompt: |
-            A slide file was just written or edited. Verify cross-reference integrity.
-            $ARGUMENTS
-            
-            Check:
-            1. List all files in data/slides/ — verify no duplicate slide numbers exist
-            2. Read project.json — verify avatar.clientId and avatar.flowId are still present
-            3. If KNOWLEDGE_BASE_PROMPT.md exists, count the slide directory entries and compare to actual slide file count
-            
-            Return {"ok": true} if everything is consistent.
-            Return {"ok": false, "reason": "..."} with specifics if you find mismatches.
-          timeout: 45
+            You are a deploy and safety gate for avatar presentation bash commands.
+
+            BLOCK (return {"decision": "block", "reason": "..."}) if ANY:
+            1. Command contains "rm -rf" or "rm -r" targeting a project directory
+            2. Command is a curl to "document_documents/action/updateContent" but earlier in this conversation there was no version bump and no validation pass
+            3. Command uses wrong Kaltura API paths: "data/action/update" with "dataContent" (must use uploadToken + document_documents), or "documents_documents" (must be "document_documents" singular), or "shortLink/action/" (must be "shortlink_shortlink/action/")
+
+            ALLOW (return {"decision": "allow"}) otherwise.
   Stop:
     - hooks:
-        - type: agent
+        - type: prompt
           prompt: |
-            Before this session ends, perform a completeness check on the avatar presentation project.
-            $ARGUMENTS
-            
-            Read the project files and verify:
-            1. All slide JSONs in data/slides/ have sequential numbering (no gaps, no duplicates)
-            2. Each slide's category is from the allowed enum: financial, legal, strategy, product, overview, section_divider
-            3. KNOWLEDGE_BASE_PROMPT.md total character count is under 30,000
-            4. Every navigation phrase in KNOWLEDGE_BASE_PROMPT.md exactly matches the regex contract (terminal period, correct tense)
-            5. project.json version field exists and is valid semver
-            6. No TODO or FIXME markers remain in any project file
-            7. TTS pronunciation entries in studio/ cover all proper nouns from the slide content
-            
-            Return {"ok": true} if all checks pass.
-            Return {"ok": false, "reason": "..."} listing each issue found. Be specific about file names and line numbers.
-          timeout: 60
----
+            You are a completeness auditor for avatar presentation generation.
+            The session is about to end. Check whether the work appears complete.
+
+            BLOCK (return {"decision": "block", "reason": "..."}) if ANY:
+            1. The conversation shows a PDF was provided with N total pages/slides identified during analysis, but fewer slide JSON files were actually written to data/slides/. This is the #1 failure mode — large decks get partially processed. If analysis found 40 slides but only 20 were written, BLOCK.
+            2. The conversation mentions TODOs, placeholders, or "I'll generate the rest later" without actually completing them.
+            3. Slide files were written but no KNOWLEDGE_BASE_PROMPT.md was generated.
+            4. A bundle or deploy was discussed but version was never bumped.
+
+            ALLOW (return {"decision": "allow"}) if:
+            - All identified slides were generated (count matches analysis)
+            - OR the user explicitly said to stop early / do partial work
+            - OR no presentation generation occurred this session (just a question/discussion)
 ```
 
-#### Hook 1: Schema Gate + Secret Guard + OBEY Lock (PreToolUse prompt hook on Write|Edit)
+#### Hook 1: Security + Structure Gate (PreToolUse prompt on Write|Edit)
 
 **Fires:** Before any Write or Edit tool call
 
-**What it validates (single LLM judgment, no tools needed):**
-- OBEY_RULES lock: path matches `**/OBEY_RULES*` → unconditional block
-- Secret leakage: content contains 32-char hex strings, partner IDs in credential contexts, or patterns matching `.env` values → block
-- Slide schema: required fields present, category from enum, talking_points is 1-4 item array → block if invalid
-- Project.json: parses as JSON, required top-level keys present → block if invalid
+**What it catches:**
+- **Secret leakage:** 32-char hex strings (admin secrets), exposed credential values
+- **OBEY_RULES lock:** Prevents modifying per-project copies of the locked rules file
+- **Slide schema:** Missing required fields, invalid categories, malformed talking_points
+- **Wrong API paths:** Catches `data/action/` (wrong), `documents_documents` (typo), must be `document_documents`
+- **Navigation phrase violations:** Catches "Let me show you slide", "Here's slide", "Go to slide" — only "Navigating to slide [N]." is valid
 
-**On block:** Returns `{"ok": false, "reason": "..."}`. Claude Code shows the reason, the write is denied, and the AI must fix content before retrying.
+**On block:** Write is denied. AI sees the reason, fixes content, retries.
 
-**Why a prompt hook (not an agent hook):** All these checks operate on the CONTENT BEING WRITTEN — which is already in `$ARGUMENTS`. No file reading needed. A single-turn prompt judgment (Haiku-speed, ~2s) is fast enough to run on every write without degrading the authoring flow.
-
-**Why this exists at all:** Over a 28-slide generation session, the AI WILL produce at least one invalid category, one malformed array, or one accidentally-inlined secret. The hook makes each error impossible to persist to disk.
-
----
-
-#### Hook 2: Navigation Phrase Lint (PreToolUse prompt hook on KB writes)
-
-**Fires:** Before any Write or Edit to `**/KNOWLEDGE_BASE_PROMPT*` (filtered via `if` field)
-
-**What it validates:** Navigation commands must EXACTLY match the regex contract in app.js:
-- Correct tense: "Navigating" not "Navigate"
-- Correct phrase: "Moving to the next slide." not "Go to the next slide."
-- Terminal period required on all navigation phrases
-- English only
-
-**On block:** Returns the specific near-miss found and the expected correct phrase.
-
-**Why this is separate from Hook 1:** The navigation lint requires domain-specific reasoning about natural language near-misses that's different from the mechanical JSON/secret checks. Keeping it as its own prompt hook means the prompt can be focused and precise. The `if` field ensures it only fires on KB writes (not on every file write), avoiding unnecessary LLM calls.
-
-**Why this matters:** Navigation commands are parsed by regex. A single missing period = the slide doesn't change. This is the #1 cause of "worked in testing, broke live."
+**Why this is the highest-value hook:** Over a 40-slide generation session, the AI will inevitably produce at least one invalid category, one near-miss navigation phrase, or one accidentally-inlined secret. This hook makes those errors impossible to persist to disk.
 
 ---
 
-#### Hook 3: Deploy Safety Gate (PreToolUse prompt hook on Bash)
+#### Hook 2: Deploy + Destructive Command Gate (PreToolUse prompt on Bash)
 
-**Fires:** Before any Bash tool call containing deploy-related commands or destructive deletes (filtered via `if` field)
+**Fires:** Before any Bash tool call
 
-**What it validates:**
-- `rm -rf` / `rm -r` targeting project directory → unconditional block
-- Deploy commands (curl to Kaltura document_documents/action/updateContent) → block unless validation and version bump have been completed in this session
+**What it catches:**
+- **Destructive deletes:** `rm -rf` or `rm -r` targeting project directories
+- **Deploy without validation:** curl to `updateContent` when no version bump occurred this session
+- **Wrong API paths in curl:** `data/action/update` with `dataContent`, `documents_documents` (typo), `shortLink/action/` instead of `shortlink_shortlink/action/`
 
-**On block:** Returns specific reason ("must validate first" or "destructive delete blocked").
+**On block:** Command is denied with specific fix instructions.
 
-**Why a prompt hook (not a command hook):** The prompt hook can reason about WHETHER the bash command is actually a deploy (even if the exact curl syntax varies) and WHETHER the session context suggests validation has passed. A rigid regex match would miss variations.
-
----
-
-#### Hook 4: Cross-Reference Integrity (PostToolUse agent hook on slide writes)
-
-**Fires:** After any successful Write or Edit to `data/slides/*`
-
-**What it does (multi-step, with file access):**
-1. Lists all files in `data/slides/` to check for duplicate slide numbers
-2. Reads `project.json` to verify critical fields weren't accidentally deleted
-3. Reads `KNOWLEDGE_BASE_PROMPT.md` to verify slide directory count matches actual files
-
-**On failure:** Returns `{"ok": false, "reason": "..."}` — shown as a warning. The write already happened (PostToolUse), but the AI is alerted to fix the inconsistency before proceeding.
-
-**Why an agent hook (not a prompt hook):** Cross-reference checks require READING OTHER FILES beyond what was just written. The agent hook has access to Read, Grep, Glob, and Bash tools — it can `ls data/slides/`, read project.json, and count entries in the KB. A prompt hook only sees the `$ARGUMENTS` of the current operation.
+**Why it matters:** A deploy with wrong API paths wastes time debugging Kaltura errors. A deploy without version bump means cached old content. Both are common mistakes in long sessions.
 
 ---
 
-#### Hook 5: Session Completeness Gate (Stop agent hook)
+#### Hook 3: Deck Completeness Gate (Stop prompt)
 
-**Fires:** When the AI signals it's done (Stop event)
+**Fires:** When the session is about to end
 
-**What it does (comprehensive multi-step verification):**
-1. Reads all slide JSONs — checks sequential numbering, valid categories
-2. Reads KNOWLEDGE_BASE_PROMPT.md — character count, navigation phrase integrity
-3. Reads project.json — version validity
-4. Greps for TODO/FIXME markers across project files
-5. Cross-references TTS entries against proper nouns in slide content
+**What it catches:**
+- **Incomplete deck processing** — The #1 user complaint. A 62-page PDF analyzed as 45 slides, but only 20 slide JSONs written. The hook compares the analysis count to the actual file count.
+- **Abandoned work** — TODOs, "I'll generate the rest later", placeholders
+- **Missing KB** — Slides written but no KNOWLEDGE_BASE_PROMPT.md generated
+- **Unbumped deploy** — Deploy discussed but version never incremented
 
-**On failure:** Returns `{"ok": false, "reason": "..."}` with specific issues. When a Stop hook returns `ok: false`, Claude Code tells the AI to keep working — it cannot end the session until the issues are resolved or the user explicitly dismisses.
+**On block:** Session continues — AI must complete the remaining work.
 
-**Why this is the most important hook:** Everything else catches errors at the moment of creation. This hook catches errors of OMISSION — things the AI forgot to do, things that fell through the cracks during a long session. It's the final safety net before the user thinks the work is complete.
+**Why this is critical:** Large decks (40-80+ pages) are the skill's primary use case. Without this hook, Claude often generates 15-25 slides and then summarizes completion — leaving half the deck unprocessed. The user doesn't notice until they bundle and find slides missing. This hook catches it before the FDE walks away thinking the job is done.
 
-**Timeout:** 60 seconds. This hook reads multiple files and performs 7 distinct checks. The extended timeout ensures it doesn't get cut off mid-verification.
+**Escape hatch:** If the user explicitly says "just do the first 20 slides" or "stop here, I'll continue later", the hook allows early termination.
 
 ---
 
 #### Hook Behavior Summary
 
-| Hook | Event | Type | Timeout | Effect on Failure |
-|------|-------|------|---------|-------------------|
-| Schema/Secret/Lock gate | PreToolUse | prompt | 30s | Write DENIED — AI must fix and retry |
-| Navigation phrase lint | PreToolUse | prompt | 30s | Write DENIED — AI must fix phrasing |
-| Deploy safety gate | PreToolUse | prompt | 30s | Bash DENIED — AI must validate/bump first |
-| Cross-reference integrity | PostToolUse | agent | 45s | WARNING shown — AI should fix before continuing |
-| Session completeness | Stop | agent | 60s | Session CONTINUES — AI must resolve issues |
+| Hook | Event | Type | Platform | Effect on Failure |
+|------|-------|------|----------|-------------------|
+| Security + Structure gate | PreToolUse | prompt | All (runs in Claude) | Write DENIED — AI must fix and retry |
+| Deploy + Destructive gate | PreToolUse | prompt | All (runs in Claude) | Bash DENIED — AI must fix command |
+| Deck Completeness gate | Stop | prompt | All (runs in Claude) | Session CONTINUES — AI must finish remaining slides |
 
 ---
 
-### AB. Hook Type Decision Matrix
+### AB. What's a Hook vs. What's an Instruction vs. What's a Script
 
-| Concern | Hook Type | Why This Type? |
-|---------|-----------|---------------|
-| Slide JSON schema | **prompt** | Content is in `$ARGUMENTS` — no file reading needed, pure validation logic |
-| OBEY_RULES immutability | **prompt** | Path check + unconditional block — simplest possible judgment |
-| Secret leakage | **prompt** | Pattern matching on content being written — already in `$ARGUMENTS` |
-| Navigation phrase lint | **prompt** | Linguistic near-miss detection on content being written — LLM excels at this |
-| Deploy preconditions | **prompt** | Reasoning about command intent + session context — no file reads needed |
-| Cross-reference integrity | **agent** | Must READ OTHER FILES (ls slides/, read project.json, read KB) to compare |
-| Session completeness | **agent** | Must read MULTIPLE files, count things, grep for patterns — full verification sweep |
-| TTS coverage audit | **agent** (in Stop hook) | Must cross-reference two file sets (slides vs TTS entries) |
-| Bundling | **shell script** | Deterministic file concatenation — no judgment needed |
-| Version bump | **shell script** | Arithmetic + file write — exact output required |
+| Concern | Mechanism | Why? |
+|---------|-----------|------|
+| Secret leakage | **Hook (prompt)** | Must be unforgettable — instructions can be skipped in long sessions |
+| OBEY_RULES lock | **Hook (prompt)** | Same — physical enforcement, not suggestion |
+| Slide schema validation | **Hook (prompt)** | Catch invalid content before it's written |
+| Navigation phrase lint | **Hook (prompt)** | Combined into Hook 1 for efficiency |
+| Wrong API paths | **Hook (prompt)** | Common mistake that wastes deploy time |
+| Incomplete deck processing | **Hook (Stop)** | The AI genuinely doesn't realize it stopped early |
+| Cross-reference integrity | **Instruction** (SELF-VALIDATION RULES) | Nice to check but not worth a separate hook invocation per slide write |
+| TTS coverage audit | **Instruction** (Phase 3) | One-time check, not per-write |
+| Deploy preconditions | **Hook (prompt)** | Prevents wasted API calls |
+| Bundling | **Shell script** | Deterministic file concatenation — no judgment needed |
+| Version bump | **Shell script** | Arithmetic + file write — exact output required |
 | Deploy execution | **Claude directly** | API call + JSON response reading — Claude does this natively via curl |
-| Project scaffolding | **Claude directly** | Directory creation + template writes — trivial for the Write tool |
 
-**The decision rule:**
-- If it operates ONLY on the content being written → `prompt` hook (fast, ~2s)
-- If it needs to READ OTHER FILES to validate → `agent` hook (thorough, 30-60s)
-- If it produces DETERMINISTIC OUTPUT where exact bytes matter → shell script
-- If it requires JUDGMENT or API interaction → Claude executes directly (no hook, just instructions)
+**The decision rules:**
+- **Hook it** if: (a) violation is catastrophic (secrets, broken demos), AND (b) the AI has historically missed it in long sessions, AND (c) it can be checked from `$ARGUMENTS` alone (no file reads needed)
+- **Instruct it** if: the check is important but a per-write hook would be too expensive or the AI reliably follows the instruction
+- **Script it** if: deterministic output where exact bytes matter
+- **Claude does it directly** if: requires judgment, API interaction, or multi-file reasoning
 
 ---
 
@@ -2251,19 +2184,20 @@ What happens when things go wrong:
 
 | Failure | System Behavior | FDE Experience |
 |---------|----------------|----------------|
-| Prompt hook blocks a write (schema) | AI sees `{"ok": false, "reason": "..."}`, adjusts content, retries | "Fixed the category — writing again" |
-| Prompt hook blocks a write (secret) | AI sees the specific secret pattern detected, removes it, retries | "Removed credential from line 14, using .env reference" |
-| Prompt hook blocks OBEY_RULES edit | AI sees "file is LOCKED" message, redirects to KNOWLEDGE_BASE_PROMPT.md | "Adding that constraint to the KB instead" |
-| Prompt hook blocks deploy | AI sees "must validate first", runs completeness check, bumps version | "Running validation and version bump before deploy" |
-| Agent hook warns on cross-ref | AI sees specific mismatch (e.g., "slide_15 duplicates slide_15"), fixes | "Renumbering to slide_16" |
-| Stop agent hook finds issues | Session continues — AI addresses each issue listed in the reason | "Found 3 issues — fixing sequential gap, adding missing TTS, removing TODO" |
+| Hook blocks a write (secret detected) | AI sees block reason, removes credential, retries | "Removed credential from line 14, using .env reference" |
+| Hook blocks a write (invalid schema) | AI sees which field is wrong, fixes, retries | "Fixed the category — writing again" |
+| Hook blocks a write (wrong nav phrase) | AI sees which phrase is wrong and the correct form | "Changed 'Let me show you slide 5' to 'Navigating to slide 5.'" |
+| Hook blocks OBEY_RULES edit | AI sees "file is LOCKED", redirects to KB | "Adding that constraint to the knowledge base instead" |
+| Hook blocks wrong API path | AI sees correct service path, fixes curl command | "Corrected to document_documents/action/updateContent" |
+| Hook blocks deploy (no version bump) | AI runs version-bump.sh first, then retries | "Running version bump before deploy" |
+| Stop hook: incomplete deck | Session continues — AI generates remaining slides | "I see 45 slides were identified but only 22 written. Generating slides 23-45 now." |
 | `bundle.sh` fails | Exit code + stderr shown — usually a missing file | "Slide 12 referenced but not found — creating it now" |
 | `version-bump.sh` fails | Exit code — usually invalid current version format | "project.json version is malformed — fixing to valid semver" |
 | curl deploy returns error | AI reads JSON error response, reasons about cause | "Got 403 — KS expired. Regenerating session." |
 
-**Recovery principle:** Every failure produces a specific, actionable error. Prompt hooks are fast (retry costs ~2s). Agent hooks give detailed diagnostics. The AI can self-correct in one iteration for any single failure.
+**Recovery principle:** Every failure produces a specific, actionable error. Prompt hooks are fast (retry costs ~3-5s). The AI can self-correct in one iteration for any single failure.
 
-**Cascading failure handling:** If the Stop hook finds 5+ issues, the AI addresses them in priority order (security → correctness → completeness). Each fix may trigger PreToolUse hooks on the corrective writes — this is intentional and ensures fixes are themselves validated.
+**Cascading behavior:** When the Stop hook blocks, the AI generates remaining slides. Those writes trigger the PreToolUse hook — which validates each slide's schema. This is intentional: fixes are themselves validated.
 
 ---
 

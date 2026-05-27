@@ -22,6 +22,59 @@ allowed-tools:
   - Bash(Get-ChildItem *)
   - Bash(Measure-Object *)
   - Agent
+hooks:
+  PreToolUse:
+    - matcher: "Write|Edit"
+      hooks:
+        - type: prompt
+          prompt: |
+            You are a security and structure gate for avatar presentation files.
+            Analyze this file write/edit operation.
+
+            BLOCK (return {"decision": "block", "reason": "..."}) if ANY of these are true:
+            1. Path contains "OBEY_RULES" and is inside a project's studio/ directory — this file is LOCKED, never modify per-project copies.
+            2. Content contains what appears to be a 32-character hex string that could be an admin secret (pattern: consecutive [a-f0-9]{32}). Exception: git commit hashes in comments are OK.
+            3. Content contains "KALTURA_ADMIN_SECRET" followed by an actual value (not a "${...}" variable reference or empty string).
+            4. File is in a data/slides/ directory and is missing ANY of these required fields: "slide", "title", "category", "talking_points".
+            5. File is in a data/slides/ directory and "category" value is not one of: "financial", "legal", "strategy", "product", "overview", "section_divider".
+            6. File is in a data/slides/ directory and "talking_points" is not an array of 1 to 4 items.
+            7. Content contains a Kaltura API URL path using "data/action/" (wrong — must use uploadToken + document_documents) or "documents_documents" (typo — must be "document_documents" singular).
+            8. Content contains navigation phrase variants that will silently fail at runtime: "Let me show you slide", "Here's slide", "Go to slide", "Navigate to slide", "Let's look at slide", "Next up is slide", "Showing slide". The ONLY valid navigation phrases are: "Navigating to slide [N].", "Moving to the next slide.", "Going back to the previous slide.", "Ending presentation now."
+
+            ALLOW (return {"decision": "allow"}) if none of the above apply.
+    - matcher: "Bash"
+      hooks:
+        - type: prompt
+          prompt: |
+            You are a deploy and safety gate for avatar presentation bash commands.
+
+            BLOCK (return {"decision": "block", "reason": "..."}) if ANY of these are true:
+            1. Command contains "rm -rf" or "rm -r" targeting a project directory (not temp files).
+            2. Command is a curl to "document_documents/action/updateContent" but the conversation has no evidence of a version bump (version-bump.sh or manual version increment) occurring before this command.
+            3. Command uses incorrect Kaltura API paths:
+               - "data/action/update" with "dataContent" parameter (WRONG — must use uploadToken + document_documents/action/updateContent)
+               - "documents_documents" anywhere in the URL (TYPO — must be "document_documents" singular)
+               - "shortLink/action/" (WRONG — must be "shortlink_shortlink/action/")
+
+            ALLOW (return {"decision": "allow"}) if none of the above apply.
+  Stop:
+    - hooks:
+        - type: prompt
+          prompt: |
+            You are a completeness auditor for avatar presentation generation sessions.
+            The session is ending. Determine if the work is complete.
+
+            BLOCK (return {"decision": "block", "reason": "..."}) if ANY of these are true:
+            1. INCOMPLETE DECK: The conversation shows a PDF was analyzed and N slides/pages were identified (look for phrases like "X pages collapsed to Y slides", "identified N slides", "slides 1 through N", or a slide map showing N entries), BUT fewer than N slide JSON files were actually written to the data/slides/ directory. This is the most critical check — large decks (40-80+ pages) frequently get only partially processed with the AI stopping at 15-25 slides.
+            2. ABANDONED WORK: The conversation contains explicit statements like "I'll generate the rest later", "remaining slides to follow", or TODO/placeholder markers in written files that were never resolved.
+            3. MISSING KNOWLEDGE BASE: Slide JSON files were written but no KNOWLEDGE_BASE_PROMPT.md was generated (the slides are useless without the KB).
+            4. UNBUMPED DEPLOY: A deploy (curl to Kaltura API) was executed but no version bump occurred earlier in the session.
+
+            ALLOW (return {"decision": "allow"}) if ANY of these are true:
+            - The slide count written matches the count identified during analysis.
+            - The user explicitly requested partial work ("just do the first 10", "stop here", "that's enough for now").
+            - No presentation generation occurred this session (it was just a discussion, review, deploy, or bug fix).
+            - The session is a continuation and slides were already generated in a prior session.
 ---
 
 # Avatar Deck — Conversational Presentation Builder
