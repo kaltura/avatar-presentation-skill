@@ -86,7 +86,7 @@ Never generate artifacts with placeholder values like `"TODO"` or `"REPLACE_ME"`
 
 **For each of these, offer to do it yourself — don't just ask the user for a value:**
 - **PDF hosting:** "I have the local PDF. Want me to upload it to Kaltura and use that URL for the header link?"
-- **Data entry:** "Want me to create a new data entry on Kaltura for deployment, or do you have an existing entry ID?"
+- **Data entry:** "Do you have an existing Kaltura data entry ID for this project? If not, I'll create one on first deploy."
 - **Customer website URL:** "Do you have a website URL for branding extraction, or should I use the deck's branding?"
 - Contact team info (if contact collection enabled)
 - Additional data files (if deck references data not on slides)
@@ -181,15 +181,32 @@ Generate the Studio Configuration Checklist (see section below).
 
 ### PHASE 5: BUNDLE + DEPLOY
 
+**Cross-platform note:** The shell scripts (`bundle.sh`, `version-bump.sh`) require a
+POSIX shell (macOS/Linux, or WSL/Git Bash on Windows). If the operator is on native
+Windows without a shell, perform the equivalent logic directly using Read/Write/Edit
+tools — the scripts are documented reference implementations, not hard dependencies.
+
 ```
-1. Bump version: sh toolkit/scripts/version-bump.sh ./project-dir/ patch
+1. Bump version in project.json (patch increment)
+   macOS/Linux: sh toolkit/scripts/version-bump.sh ./project-dir/ patch
+   Windows/fallback: read version from project.json, increment patch, write back
 2. Validate: run Phase 3 checks
-3. Bundle: sh toolkit/scripts/bundle.sh ./project-dir/ ./toolkit/engine/
-   (bundle.sh validates: slide numbering contiguous, CONFIG/SLIDE_DATA in output, CDN refs present)
+3. Bundle into dist.html
+   macOS/Linux: sh toolkit/scripts/bundle.sh ./project-dir/ ./toolkit/engine/
+   Windows/fallback: assemble dist.html via Read/Write (inline CSS, JS, CONFIG, SLIDE_DATA, DOMAIN_DATA)
 4. Confirm with FDE: "Ready to deploy vX.Y.Z to [entry]. Proceed?"
-5. Deploy via curl: upload dist.html + create/update short link (see Deploy Procedure)
-6. Report: direct URL, short link URL, version, file size
+5. Deploy via curl: update data entry + update short link (see Deploy Procedure)
+6. Report: short link URL (stable, share this), version, file size
 ```
+
+**Bundle logic (for fallback/Windows):**
+1. Read project.json → extract title, primaryColor, primaryColorHover, version, pageTitle
+2. Read engine/index.html → replace `{{PAGE_TITLE}}`, `{{TITLE}}`, `{{VERSION}}`
+3. Insert `<style>` block (engine/styles.css with color overrides) before `</head>`
+4. Insert `<script>` with: `const CONFIG = {project.json}; const SLIDE_DATA = [{slide JSONs}]; const DOMAIN_DATA = {{domain JSONs}}; const APP_VERSION = "version";`
+5. Insert `<script>` with engine/app.js before `</body>`
+6. Validate: CONFIG, SLIDE_DATA, kaltura-avatar-sdk all present in output
+7. Write dist.html
 
 ---
 
@@ -257,6 +274,7 @@ Every project.json must conform to this structure:
   "deploy": {
     "partnerId": "${KALTURA_PARTNER_ID}",
     "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "shortLinkId": "${KALTURA_SHORT_LINK_ID}",
     "shortLinkSystemName": "customer-project-avatar"
   },
 
@@ -517,13 +535,17 @@ Injected on every slide change:
 
 ---
 
-## DEPLOY PROCEDURE (curl only — works on macOS/Linux/Windows)
+## DEPLOY PROCEDURE (curl only — works on macOS/Linux/Windows 10+)
 
-Follow exactly. Do NOT improvise API calls.
+Follow exactly. Do NOT improvise API calls. Deploy ALWAYS updates existing entries — never creates new ones unless this is the first-ever setup.
 
 ### Step 1: Load .env
 
-Required values: `KALTURA_PARTNER_ID`, `KALTURA_ADMIN_SECRET`, `KALTURA_DATA_ENTRY_ID`
+Required values:
+- `KALTURA_PARTNER_ID` — numeric
+- `KALTURA_ADMIN_SECRET` — 32-char hex (never written to committed files)
+- `KALTURA_DATA_ENTRY_ID` — format: `1_xxxxxxxx`
+- `KALTURA_SHORT_LINK_ID` — short link ID (set after first deploy, blank on first run)
 
 ### Step 2: Generate KS
 
@@ -535,9 +557,9 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/session/action/start" \
 
 Response is a plain string (not JSON). Validate: must NOT start with `<` or `{`.
 
-### Step 3: Upload dist.html
+### Step 3: Update data entry with new dist.html
 
-Use `-F` (multipart), NOT `-d`:
+Use `-F` (multipart), NOT `-d`. This UPDATES the existing entry content — same entry ID, same URL, new content:
 
 ```bash
 curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/update" \
@@ -545,21 +567,15 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/update" \
   -F "dataEntry[dataContent]=<./project-dir/dist.html" -F "format=1"
 ```
 
-Validate response: contains `"objectType":"KalturaDataEntry"`, `"status":2`, and correct entry ID.
+Validate response: contains `"objectType":"KalturaDataEntry"`, `"status":2`, correct entry ID.
 
-### Step 4: Create/Update Short Link
+### Step 4: Update short link (version cache-bust)
 
-The short link gives a clean vanity URL: `https://www.kaltura.com/tiny/XXXXX`
+The short link URL (`https://www.kaltura.com/tiny/XXXXX`) is the **permanent shareable URL**.
+It never changes. On each deploy, update its `fullUrl` to include `?v=VERSION` so CDN
+serves fresh content instead of cached old version.
 
-`project.json` → `deploy.shortLinkSystemName` is the lookup key.
-
-```bash
-# Find existing short link by systemName
-curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/list" \
-  -d "ks=KS_TOKEN" -d "filter[systemNameEqual]=SHORT_LINK_SYSTEM_NAME" -d "format=1"
-```
-
-If `totalCount > 0`: update existing link's `fullUrl` to point to the direct-serve URL with cache-buster:
+**If `KALTURA_SHORT_LINK_ID` exists in .env** (normal case — every deploy after first):
 
 ```bash
 curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/update" \
@@ -568,7 +584,17 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/update"
   -d "format=1"
 ```
 
-If `totalCount == 0`: create new short link:
+**If first-ever deploy (no short link ID yet):**
+
+```bash
+# Look up by systemName first (in case it was created manually)
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/list" \
+  -d "ks=KS_TOKEN" -d "filter[systemNameEqual]=SHORT_LINK_SYSTEM_NAME" -d "format=1"
+```
+
+If `totalCount > 0`: extract `id`, save to .env as `KALTURA_SHORT_LINK_ID`, then update as above.
+
+If `totalCount == 0`: create new:
 
 ```bash
 curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/add" \
@@ -579,26 +605,53 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/add" \
   -d "format=1"
 ```
 
-Extract `id` from response → live URL is `https://www.kaltura.com/tiny/{id}`
+Extract `id` from response → save to .env as `KALTURA_SHORT_LINK_ID`.
+
+**Shareable URL (give to user, never changes):** `https://www.kaltura.com/tiny/{id}`
 
 ### Step 5: Verify
 
-Direct-serve URL: `https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html`
-Short link URL: `https://www.kaltura.com/tiny/{id}`
-
-`curl -s -o /dev/null -w "%{http_code}" "URL"` → expect 200.
+`curl -s -o /dev/null -w "%{http_code}" "https://www.kaltura.com/tiny/SHORT_LINK_ID"` → expect 301/302 redirect.
 
 ### Step 6: Report
 
-Entry ID, direct URL, short link URL, version, file size, "Test it now?"
+- Short link URL: `https://www.kaltura.com/tiny/{id}` ← share this (permanent)
+- Version deployed, file size
+- "Test it now? Open the short link in a browser."
 
 ### Constraints
-- NEVER write admin secret into committed/uploaded files
-- NEVER `data/action/add` without user permission — prefer `update`
-- NEVER deploy without bundle.sh + validation pass + version bump
-- ALWAYS confirm with user before uploading
-- ALWAYS update short link with `?v=VERSION` cache-buster so CDN serves the new content
-- New entry: use `data/action/add` with `-F "dataEntry[name]=..."`, extract ID, update .env
+- NEVER write admin secret into dist.html, project.json, or any committed file
+- NEVER create a new data entry on update — always `data/action/update` on existing entry
+- NEVER create a new short link if one already exists — always update the existing one
+- NEVER deploy without bundling + validation pass + version bump
+- ALWAYS confirm with user before executing upload
+- ALWAYS include `?v=VERSION` in short link fullUrl for cache-busting
+
+### First-Time Setup (only when KALTURA_DATA_ENTRY_ID is missing)
+
+If this is a brand new project with no existing data entry:
+
+```bash
+# Create data entry (one time only)
+curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/add" \
+  -F "ks=KS_TOKEN" \
+  -F "dataEntry[name]=PROJECT_NAME Avatar Presentation" \
+  -F "dataEntry[dataContent]=<./project-dir/dist.html" \
+  -F "format=1"
+```
+
+Extract `id` from response → save to .env as `KALTURA_DATA_ENTRY_ID`.
+Then proceed to Step 4 (create short link) as normal.
+
+After first deploy, `.env` should contain all four values:
+```
+KALTURA_PARTNER_ID=1234567
+KALTURA_ADMIN_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+KALTURA_DATA_ENTRY_ID=1_xxxxxxxx
+KALTURA_SHORT_LINK_ID=xxxxx
+```
+
+All subsequent deploys: Steps 2→3→4→5→6 (update entry + update short link). Never recreate.
 
 ### PDF Upload (if local PDF needs CDN hosting)
 
