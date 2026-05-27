@@ -1920,7 +1920,7 @@ Execute:
     -F "ks=$KS" -F "uploadTokenId=$TOKEN_ID" \
     -F "fileData=@dist.html;type=text/html;filename=dist.html"
   # Attach to existing document entry
-  curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/updateContent" \
+  curl -s -X POST "https://www.kaltura.com/api_v3/service/documents_documents/action/updateContent" \
     -d "ks=$KS" -d "entryId=$KALTURA_DOCUMENT_ENTRY_ID" \
     -d "resource[objectType]=KalturaUploadedFileTokenResource" -d "resource[token]=$TOKEN_ID" -d "format=1"
 
@@ -2040,7 +2040,7 @@ hooks:
             
             BLOCK if ANY of these are true:
             1. Command contains "rm -rf" or "rm -r" targeting a project directory — return {"ok": false, "reason": "Destructive delete blocked. Use git to discard changes instead."}
-            2. Command is a deploy operation (curl to kaltura.com/api_v3/service/document_documents/action/updateContent) — this is allowed ONLY if the skill has already run validation and version bump in this session.
+            2. Command is a deploy operation (curl to kaltura.com/api_v3/service/documents_documents/action/updateContent) — this is allowed ONLY if the skill has already run validation and version bump in this session.
             
             For deploy commands: return {"ok": false, "reason": "Deploy blocked — must run validation and bump version first."} unless you can see from context that these steps completed.
             Otherwise return {"ok": true}
@@ -2125,7 +2125,7 @@ hooks:
 
 **What it validates:**
 - `rm -rf` / `rm -r` targeting project directory → unconditional block
-- Deploy commands (curl to Kaltura document_documents/action/updateContent) → block unless validation and version bump have been completed in this session
+- Deploy commands (curl to Kaltura documents_documents/action/updateContent) → block unless validation and version bump have been completed in this session
 
 **On block:** Returns specific reason ("must validate first" or "destructive delete blocked").
 
