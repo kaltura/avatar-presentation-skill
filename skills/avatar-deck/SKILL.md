@@ -67,6 +67,8 @@ Before writing any file, verify these invariants:
 
 Collect required inputs before proceeding. The user provides the PDF and avatar URL as arguments. Parse the avatar URL to extract `clientId` and `flowId`.
 
+**First:** Check if a `.env` file already exists in the project directory. If it contains values (Partner ID, Admin Secret, Document Entry ID, Short Link ID), use them — do not re-ask for values that are already populated. Copy from `.env.example` if `.env` doesn't exist yet.
+
 Ask for what's still missing — present only what you don't already have:
 
 ```
