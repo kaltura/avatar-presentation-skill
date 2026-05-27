@@ -1,14 +1,6 @@
 ---
 name: avatar-deck
-description: >
-  Generate a complete, compliant, deployable avatar presentation project from a
-  customer's PDF deck and website URL. Guides an FDE through project creation with
-  deterministic validation at every step. Output is a working dist.html ready for
-  Kaltura CDN deployment.
-when_to_use: >
-  Use when asked to create a new avatar presentation, generate presentation slides,
-  build a conversational avatar deck, or deploy an interactive presentation.
-argument-hint: "[pdf-path-or-url]"
+description: Generate a complete, compliant, deployable avatar presentation project from a PDF deck and website URL. Use when asked to create a new avatar presentation, generate presentation slides, build a conversational avatar deck, or deploy an interactive presentation.
 allowed-tools:
   - Read
   - Write
