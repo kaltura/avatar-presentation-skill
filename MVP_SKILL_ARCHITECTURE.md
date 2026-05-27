@@ -16,7 +16,7 @@ Today, creating a new avatar presentation requires cloning the Q1 2026 Earnings 
 
 ## Who This Is For
 
-**Kaltura Field Engineers (FDEs)** — Technical professionals who know JSON, can run Node.js scripts, and understand the Kaltura platform. They need to produce avatar presentations for enterprise customers (AWS, NVIDIA, Broadridge, Bank of America) by Thursday's demo.
+**Kaltura Field Engineers (FDEs)** — Technical professionals who know JSON, are comfortable with CLI tools, and understand the Kaltura platform. They need to produce avatar presentations for enterprise customers (AWS, NVIDIA, Broadridge, Bank of America) by Thursday's demo.
 
 **What FDEs care about:**
 - "I need this working by the customer demo on Thursday"
@@ -40,10 +40,10 @@ Today, creating a new avatar presentation requires cloning the Q1 2026 Earnings 
 │  ├── Generates project.json                              │
 │  └── Runs validation at every step                       │
 │                                                          │
-│  Deterministic Tools (Node.js scripts, not AI):          │
-│  ├── validate.js → contract testing                      │
-│  ├── bundle.js → produces dist.html                      │
-│  └── deploy.js → uploads to Kaltura CDN                  │
+│  Deterministic Tools (POSIX shell scripts):               │
+│  ├── bundle.sh → produces dist.html                      │
+│  ├── version-bump.sh → semver management                 │
+│  └── Deploy via curl (Claude executes directly)          │
 └─────────────────────────────────────────────────────────┘
          │
          ▼
@@ -67,7 +67,7 @@ Today, creating a new avatar presentation requires cloning the Q1 2026 Earnings 
 └─────────────────────────────────────────────────────────┘
 ```
 
-**No cloud infrastructure.** No AgentCore. No microVMs. No MCP Gateway. Just Claude Code + proven Node.js scripts + the FDE's expertise.
+**No cloud infrastructure.** No AgentCore. No microVMs. No MCP Gateway. Just Claude Code + minimal POSIX shell scripts + the FDE's expertise.
 
 ---
 
@@ -80,7 +80,7 @@ A Claude Code skill that has deep knowledge of:
 1. **The output format** — exact project.json schema, slide JSON structure, studio .md patterns, DPP v3 protocol, and how they all connect at runtime
 2. **The runtime contracts** — navigation phrases must be exact English ("Navigating to slide [N]."), TTS phonetics map format, GenUI overlay schemas, autoplay timing semantics
 3. **Compliance rules** — locked rules that every project inherits (security, navigation, format), category-driven metadata (financial→disclaimer_required), SEC language patterns
-4. **The validation pipeline** — what bundle.js checks, what can go wrong, how to fix it
+4. **The validation pipeline** — what bundle.sh checks, inline validation checks, how to fix failures
 
 ### Session Flow
 
@@ -115,11 +115,11 @@ Skill:
     → Inherits studio/OBEY_RULES.md (locked — never modified per project)
 
   Phase 3 — Validation
-    → Runs validate.js (slide numbering, JSON schema, required fields)
+    → Inline checks (slide numbering, JSON schema, required fields)
     → Checks navigation phrases against contract patterns
     → Checks TTS map for phonetic collisions (billion/million)
     → Verifies category→metadata propagation
-    → Runs bundle.js → confirms dist.html produces cleanly
+    → Runs bundle.sh → confirms dist.html produces cleanly
 
   Phase 4 — Review
     → Presents summary: N slides generated, categories assigned, data sources
@@ -127,7 +127,7 @@ Skill:
     → FDE can iterate ("make slides 12-18 more conversational", "add a CTA on slide 5")
 
   Phase 5 — Deploy (when FDE is ready)
-    → Runs deploy.js → live URL returned
+    → Bumps version, bundles, deploys via curl → short link URL returned
 ```
 
 ---
@@ -188,6 +188,7 @@ The skill's system prompt encodes the complete toolkit knowledge. This is what m
   "deploy": {
     "partnerId": "${KALTURA_PARTNER_ID}",
     "entryId": "${KALTURA_DOCUMENT_ENTRY_ID}",
+    "shortLinkId": "${KALTURA_SHORT_LINK_ID}",
     "shortLinkSystemName": "customer-project-avatar"
   },
 
@@ -195,7 +196,9 @@ The skill's system prompt encodes the complete toolkit knowledge. This is what m
     "screenCapture": true,
     "genui": true,
     "sessionTimeWarning": true,
-    "welcomeScreen": true
+    "welcomeScreen": true,
+    "sessionMemory": true,
+    "debug": false
   }
 }
 ```
@@ -295,60 +298,82 @@ These are the contracts between generated content and the app.js runtime. If ANY
 
 ---
 
-## Deterministic Tools (Node.js Scripts)
+## Deterministic Tools (Shell Scripts + Claude-as-Executor)
 
-These are NOT AI. They are deterministic code that runs the same way every time. Single-file Node.js scripts, zero npm dependencies — only `fs`, `path`, `crypto`, `https` from the standard library.
+The skill uses two types of operations:
 
-### validate.js
+1. **Shell scripts** — for purely mechanical, deterministic operations (file assembly, version arithmetic)
+2. **Claude-as-executor** — for API calls and validation that benefit from JSON comprehension and error reasoning
 
-Checks before bundling:
+### Validation (Claude inline — no script)
 
-```js
-// What it validates:
+Before bundling, the skill performs these checks directly (documented in SKILL.md's "SELF-VALIDATION RULES" and Phase 3):
+
+```
+What it validates:
 1. project.json exists and parses correctly
 2. All required fields present (avatar.clientId, deck.pdfUrl, branding.title)
 3. Slide JSONs in data/slides/ parse correctly
-4. Slide numbers are contiguous 1...N
+4. Slide numbers are contiguous 1...N (zero-padded filenames: slide_01.json)
 5. Every slide has: slide, title, category, talking_points
-6. Category values are from allowed enum
+6. Category values are from allowed enum: financial, legal, strategy, product, overview, section_divider
 7. TTS replacements don't conflict with navigation command words
-8. Version in project.json matches expectations
-9. Referenced data files exist
-10. Studio .md files exist (KNOWLEDGE_BASE_PROMPT, AVATAR_GOALS, OBEY_RULES, REPLY_FORMAT)
+8. Version in project.json is valid semver
+9. Navigation phrases in KNOWLEDGE_BASE_PROMPT exactly match contract
+10. Studio .md files exist (KNOWLEDGE_BASE_PROMPT, AVATAR_GOALS, OBEY_RULES, REPLY_FORMAT, SUMMARY_PROMPT)
 ```
 
-**Exit code 0 = safe to bundle. Non-zero = errors printed, build blocked.**
+**Why not a script:** Claude reads JSON natively and can reason about semantic correctness (e.g., "this talking point references a number not in slide_content"). A script can only check syntax.
 
-### bundle.js
+### bundle.sh
 
-Produces `dist.html` from project files:
+Produces `dist.html` from project files. POSIX shell (~160 lines):
 
-```js
-// What it does:
-1. Reads project.json → injects CONFIG values into app.js
-2. Reads all data/*.json → inlines into loadData() function
-3. Validates slide numbering (contiguous 1-N)
-4. Templates index.html (branding, meta tags, welcome screen)
-5. Inlines styles.css (with primaryColor override)
-6. Keeps CDN scripts external (pdf.js, socket.io, avatar SDK)
-7. Post-bundle validation (no stale references, all data inlined)
-8. Atomic write (temp file → rename, prevents corruption)
+```
+What it does:
+1. Validates all required files exist
+2. Validates contiguous slide numbering (1...N, no gaps)
+3. Reads project.json → extracts branding values
+4. Templates index.html (sed replacement of {{TITLE}}, {{VERSION}}, {{PAGE_TITLE}})
+5. Inlines styles.css with primaryColor/primaryColorHover override
+6. Injects CONFIG (project.json), SLIDE_DATA (slide JSONs), DOMAIN_DATA (other data JSONs)
+7. Inlines app.js
+8. Post-bundle validation: CONFIG, SLIDE_DATA, kaltura-avatar-sdk CDN all present
+9. Atomic write (temp file → mv, prevents corruption)
 ```
 
 **Same inputs always produce byte-identical output.** No timestamps, no random IDs.
 
-### deploy.js
+**Cross-platform:** On Windows without a POSIX shell, the skill performs equivalent logic inline via Read/Write/Edit tools (documented fallback in SKILL.md Phase 5).
 
-Uploads to Kaltura CDN:
+### version-bump.sh
 
-```js
-// What it does:
-1. Reads .env for credentials (KALTURA_PARTNER_ID, ADMIN_SECRET, DATA_ENTRY_ID)
-2. Authenticates with Kaltura API
-3. Uploads dist.html to document entry
-4. Updates short link with cache-busting ?v=X.Y.Z
-5. Prints: deployed version, short link URL, direct URL
+Semver management (~60 lines):
+
 ```
+Usage: sh toolkit/scripts/version-bump.sh ./project-dir/ [patch|minor|major]
+1. Reads current version from project.json via grep
+2. Increments the specified component (default: patch)
+3. Writes back via sed in-place (handles macOS vs Linux sed -i difference)
+4. Outputs: "1.0.2 → 1.0.3"
+```
+
+### Deploy (Claude executes curl directly — no script)
+
+Deploy uses `curl` commands executed by Claude, following exact instructions in SKILL.md:
+
+```
+1. Load .env → extract KALTURA_PARTNER_ID, ADMIN_SECRET, DOCUMENT_ENTRY_ID, SHORT_LINK_ID
+2. Generate KS: curl to session/action/start
+3. Create upload token: curl to uploadToken/action/add (with fileName=dist.html)
+4. Upload file: curl to uploadToken/action/upload (-F fileData with type=text/html)
+5. Attach to entry: curl to document_documents/action/updateContent
+6. Update short link: curl to shortlink_shortlink/action/update (with ?v=VERSION cache-bust)
+7. Verify: curl the short link → expect 301/302 redirect
+8. Report: short link URL (permanent), version, file size
+```
+
+**Why not a script:** Claude reads JSON responses natively, handles errors by reasoning ("got 403 — KS expired, regenerating"), and adapts if API response format changes. No `jq` or JSON parsing library needed. Works identically on macOS, Linux, and Windows 10+.
 
 ---
 
@@ -384,13 +409,11 @@ The Q1 2026 Earnings Avatar is a production-proven system that investors and ana
 - Inferring slide categories from content
 - Identifying jargon for TTS pronunciation tables
 
-### 3. Deterministic Code Does What Deterministic Code Is Good At
+### 3. Deterministic Scripts + Claude-as-Validator Handle the Rest
 
-- Validating JSON schema conformance
-- Checking slide number contiguity
-- Ensuring navigation phrases match exact regex patterns
-- Bundling files into dist.html reproducibly
-- Deploying to Kaltura CDN
+- Shell scripts: bundling files into dist.html reproducibly, version arithmetic
+- Claude inline: validating JSON schemas, checking slide contiguity, verifying navigation phrases
+- Claude via curl: deploying to Kaltura CDN, reading API responses, handling errors
 
 ### 4. Locked Rules Prevent Catastrophic Failures
 
@@ -473,14 +496,19 @@ Reports any issues to FDE with specific file:line references and suggested fixes
 FDE: "Deploy it"
 
 Skill:
-  1. Bumps version in project.json
-  2. Runs validate.js → must pass
-  3. Runs bundle.js → produces dist.html
+  1. Bumps version: sh toolkit/scripts/version-bump.sh ./project/ patch
+  2. Runs Phase 3 validation checks (inline)
+  3. Bundles: sh toolkit/scripts/bundle.sh ./project/ ./toolkit/engine/
   4. Confirms with FDE: "Ready to deploy v1.2.0 to [entry]. Proceed?"
   5. FDE confirms
-  6. Runs deploy.js → returns live URL
+  6. Deploys via curl:
+     - Generate KS (session/start)
+     - Upload via uploadToken → document_documents/updateContent
+     - Update short link with ?v=VERSION cache-bust
   7. "Live at https://www.kaltura.com/tiny/xxxxx — test it now?"
 ```
+
+Deploy ALWAYS updates the same document entry and short link — never creates duplicates. Credentials stored in `.env` (gitignored). The short link URL is permanent and shareable.
 
 ---
 
@@ -488,34 +516,36 @@ Skill:
 
 ### 1. The Skill File
 
-`.claude/skills/avatar-deck.md` — Complete system prompt with:
+`skills/avatar-deck/SKILL.md` — Complete system prompt (~900 lines) with:
 - Full project.json schema
 - Slide JSON format and rules
 - Studio config patterns (with examples from Q1 Earnings Avatar)
 - Runtime contracts (exact navigation phrases, TTS format)
 - Compliance rules per use case
-- Validation checklist
-- Generation workflow (phases 1-5)
+- Self-validation rules (security gate, slide gate, navigation gate, deploy gate)
+- Generation workflow (phases 0-5)
+- Deploy procedure (curl commands with exact API paths)
+- Cross-platform support (Windows fallback documented)
 
 ### 2. The Engine (Shared)
 
-`toolkit/engine/` — Copied from Q1 2026 Earnings Avatar:
-- `app.js` (1,900 lines, zero data, pure logic)
-- `index.html` (HTML shell with {{placeholder}} slots)
+`toolkit/engine/` — Config-driven presentation runtime:
+- `app.js` (~1,900 lines, zero hardcoded data, reads CONFIG/SLIDE_DATA/DOMAIN_DATA globals)
+- `index.html` (HTML template with `{{TITLE}}`, `{{VERSION}}`, `{{PAGE_TITLE}}` placeholders)
 - `styles.css` (dark theme + CSS custom properties for brand colors)
 
 ### 3. The Scripts
 
-`toolkit/scripts/` — Deterministic Node.js tools (zero npm deps):
-- `validate.js` — Pre-bundle contract testing
-- `bundle.js` — Produces dist.html from project + engine
-- `deploy.js` — Uploads to Kaltura CDN
-- `new-project.js` — Scaffolds a project directory from template
+`toolkit/scripts/` — Minimal POSIX shell (2 scripts, ~220 lines total):
+- `bundle.sh` — Deterministic HTML bundling with pre/post validation
+- `version-bump.sh` — Semver arithmetic on project.json
+
+No Node.js. No Python. No npm. Validation and deployment are handled by Claude directly via skill instructions.
 
 ### 4. The Locked Rules
 
 `toolkit/rules/OBEY_RULES.md` — Inherited by ALL projects, never modified:
-- Navigation command format
+- Navigation command format (exact phrases, must be FIRST words spoken)
 - Data integrity (no fabrication, no rounding)
 - Conversation behavior (4 sentences max, always end with question)
 - TTS pronunciation (phonetics, never spell acronyms)
@@ -523,15 +553,23 @@ Skill:
 
 ### 5. The Templates
 
-`toolkit/templates/` — Starter configs per use case:
+`toolkit/templates/` — Starter configs per use case (4 templates):
 - `earnings_report/` — Formal, SEC-compliant, IR contact, long autoplay
 - `sales_pitch/` — Product-focused, CTA-driven, fast pace, lead collection
 - `training/` — Module-based, assessment prompts, patient pacing
 - `report_review/` — Document walkthrough, user-paced, analytical
 
-### 6. The Reference Project
+Each template provides: `project.json.template`, `AVATAR_GOALS.md`, `REPLY_FORMAT.md`, `SUMMARY_PROMPT.md`.
 
-`projects/kaltura-q1-2026/` — The Q1 Earnings Avatar migrated to toolkit format. Proof that the toolkit produces identical output to the hand-built original.
+### 6. The Plugin Manifest
+
+`.claude-plugin/` — Claude Code plugin registration:
+- `plugin.json` — Skill registration and metadata
+- `marketplace.json` — Marketplace listing info
+
+### 7. Live Reference
+
+The Q1 2026 Earnings Avatar at [q1-26-avatar.kaltura.com](https://q1-26-avatar.kaltura.com/) is the production reference built with this skill. It demonstrates all features working in production.
 
 ---
 
@@ -593,17 +631,18 @@ But none of that matters until FDEs can reliably produce great projects. The ski
 
 ## Summary
 
-The MVP is simple: **a Claude Code skill backed by deterministic Node.js scripts and shell hooks.**
+The MVP is simple: **a Claude Code skill backed by minimal shell scripts and Claude-as-validator.**
 
 - Claude Code handles the creative work (PDF analysis, content generation, knowledge base writing)
-- Node.js scripts handle the mechanical work (validation, bundling, deployment)
-- Shell hooks enforce invariants automatically (schema gates, deploy guards, secret protection)
+- Shell scripts handle the mechanical work (deterministic HTML bundling, version arithmetic)
+- Claude handles validation inline (self-validation rules enforce schema, security, navigation, deploy gates)
+- Claude handles deployment directly (curl commands, JSON response reading, error reasoning)
 - Locked rules handle compliance (navigation contracts, security, format constraints)
 - The Q1 2026 Earnings Avatar engine handles runtime (1,900 lines of proven, generic, zero-data JavaScript)
 
-No cloud. No infrastructure. No new services. Just the right knowledge in the right prompt, backed by validation that catches every contract violation before deployment.
+No cloud. No infrastructure. No new services. No Node.js. No Python. Just the right knowledge in the right prompt, backed by validation that catches every contract violation before deployment.
 
-**The entire complexity budget is spent on one thing:** making Claude Code's generation output correct enough that validate.js passes on the first try, and the resulting avatar presentation feels as polished as the hand-built original.
+**The entire complexity budget is spent on one thing:** making Claude Code's generation output correct enough that bundle.sh passes on the first try, and the resulting avatar presentation feels as polished as the hand-built original.
 
 ---
 
@@ -1275,10 +1314,10 @@ Every deployment must have a unique version. The skill enforces this:
 
 **Rules (non-negotiable):**
 1. Version appears in project.json
-2. Version is injected into app.js `APP_VERSION` constant by bundle.js
+2. Version is injected into app.js `APP_VERSION` constant by bundle.sh
 3. Version is appended to SDK script URL as `?v=X.Y.Z` for cache busting
 4. Version is displayed in the UI (small opacity text in welcome overlay)
-5. deploy.js uses version for short link cache busting
+5. Deploy curl uses version for short link cache busting (?v=X.Y.Z)
 6. **NEVER deploy the same version with different code** — always bump before deploy
 
 The skill auto-bumps patch version on every deploy. FDE bumps minor/major for significant changes.
@@ -1378,8 +1417,8 @@ The skill maintains a hardcoded registry of known failure modes — things that 
 | Mistake | Detection | Prevention |
 |---------|-----------|------------|
 | Navigation phrase not exact English | Regex `^(Navigating to slide \d+\.|Moving to the next slide\.|Going back to the previous slide\.|Ending presentation now\.)$` | Knowledge base includes EXACT phrases with the instruction "NEVER paraphrase, translate, or vary these — navigation phrase MUST be FIRST word of response" |
-| Slide count mismatch | count(data/slides/*.json) != total_slides in KNOWLEDGE_BASE_PROMPT slide directory | validate.js checks, skill also cross-references during generation |
-| Slide numbers have gaps | [1, 2, 4, 5] — missing 3 | Sequential integer check in validate.js |
+| Slide count mismatch | count(data/slides/*.json) != total_slides in KNOWLEDGE_BASE_PROMPT slide directory | inline validation checks, skill also cross-references during generation |
+| Slide numbers have gaps | [1, 2, 4, 5] — missing 3 | Sequential integer check in inline validation |
 | Navigation to slide 0 or > N | Knowledge base slide directory lists invalid slide | Skill bounds-checks slide directory against actual slide count |
 
 #### TTS Pronunciation Collisions (Caption Corruption)
@@ -1388,15 +1427,15 @@ The skill maintains a hardcoded registry of known failure modes — things that 
 |---------|-----------|------------|
 | TTS phonetic key matches a navigation command word | "slide" → "slyde" in TTS map | TTS map generation explicitly excludes: "slide", "navigating", "moving", "next", "previous", "back", "ending", "presentation", "show" |
 | Phonetic key is substring of another | "AI" → "A I" would corrupt "EBITDA" → "eebeetdaa" | Longest-match ordering enforced; skill warns if any key is a substring of another key |
-| Same display value for different phonetics | Two entries both display as "revenue" | Dedup check in validate.js |
+| Same display value for different phonetics | Two entries both display as "revenue" | Dedup check in inline validation |
 
 #### DPP Schema Errors (Avatar Gets Wrong Data)
 
 | Mistake | Detection | Prevention |
 |---------|-----------|------------|
 | Missing `v: "3"` in DPP | Schema validation | Hardcoded in app.js — not a generation concern, but knowledge base must reference v3 |
-| Category not from enum | Category "technical" instead of "product" | validate.js checks against `["financial", "legal", "strategy", "product", "overview", "section_divider"]` |
-| talking_points empty array | `[]` in slide JSON | validate.js requires min 1, max 4 |
+| Category not from enum | Category "technical" instead of "product" | inline validation checks against `["financial", "legal", "strategy", "product", "overview", "section_divider"]` |
+| talking_points empty array | `[]` in slide JSON | inline validation requires min 1, max 4 |
 | narrator_guidance read verbatim | Avatar speaks narrator_guidance text directly | OBEY_RULES + KNOWLEDGE_BASE_PROMPT both state "narrator_guidance is HOW to present, not WHAT to say — never read it verbatim" |
 
 #### Knowledge Base Structural Failures (Avatar Misbehavior)
@@ -1429,7 +1468,7 @@ The skill maintains a hardcoded registry of known failure modes — things that 
 6. Navigation phrase contract check       → catches non-exact phrases
 7. Cross-reference check (KB ↔ slides)    → catches mismatches
 8. Talking points ↔ slide_content check   → catches hallucinated data
-9. bundle.js dry run                      → catches template errors
+9. bundle.sh dry run                      → catches template errors
 ```
 
 Every check produces a specific error message with file path, line number, field name, actual value, and expected value. No generic "validation failed" — always actionable.
@@ -1500,9 +1539,9 @@ The skill doesn't front-load all questions. It asks for essentials first, then r
 
 ---
 
-### X. eSelf Avatar Studio Configuration Guide
+### X. Kaltura Avatar Studio Configuration Guide
 
-The skill must guide the FDE through configuring the avatar in the eSelf Avatar Studio. The studio has specific fields that must align with the generated project files. Here's the complete mapping:
+The skill must guide the FDE through configuring the avatar in the Kaltura Avatar Studio. The studio has specific fields that must align with the generated project files. Here's the complete mapping:
 
 #### Studio Fields → Project Artifacts Mapping
 
@@ -1534,7 +1573,7 @@ The skill must guide the FDE through configuring the avatar in the eSelf Avatar 
 | **Loop Mode** | Toggle | OFF — one session per connection | Standard |
 | **Web Search** | Checkbox | Unchecked — avatar should NOT search the web | Keep avatar grounded in provided data only |
 | **API Search** | Checkbox | Unchecked — no external API calls | Keep avatar grounded in provided data only |
-| **Final URL** | URL field | Leave empty (defaults to eself.ai) or set to customer's post-session page | FDE decides |
+| **Final URL** | URL field | Leave empty or set to customer's post-session page | FDE decides |
 | **Permanent Links** | Link list | The playground link is auto-generated; production link added after deploy | After first deploy |
 | **Exclude Global Rules** | Multi-select | Exclude "Abbreviation" and "\n" rules (these conflict with our custom TTS and formatting) | Always exclude these two |
 | **Show YouTube Video** | Checkbox | Unchecked unless deck has video content | FDE decides |
@@ -1584,7 +1623,7 @@ After generating all project files, the skill produces a step-by-step checklist 
 ## Avatar Studio Configuration Checklist
 
 ### 1. Create or Clone the Flow
-- [ ] In eSelf Avatar Studio, create a new flow (or clone an existing presentation flow)
+- [ ] In Kaltura Avatar Studio, create a new flow (or clone an existing presentation flow)
 - [ ] Note the flow_id (e.g., "agent-XX") — must match project.json
 
 ### 2. Paste Generated Content
@@ -1658,7 +1697,7 @@ After generating all project files, the skill produces a step-by-step checklist 
 
 | Misconfiguration | Symptom | Fix |
 |-----------------|---------|-----|
-| Long Term Memory ON | Avatar uses eSelf's memory instead of app.js localStorage memory → contradicts session state | Turn OFF — app.js manages memory via DPP `memory` field |
+| Long Term Memory ON | Avatar uses platform's memory instead of app.js localStorage memory → contradicts session state | Turn OFF — app.js manages memory via DPP `memory` field |
 | Dynamic Opening Phrase ON | Avatar generates a random greeting instead of following KB opening script | Turn OFF — KB defines exact opening behavior based on DPP memory field |
 | Dynamic Page Prompt mode = "Identify" or "URL" | DPP content not added to conversation → avatar has no slide data | Set to "Skip (use raw browser content)" — app.js sends pre-formatted DPP |
 | Web Search ON | Avatar searches the internet mid-conversation → hallucinated or outdated data | Turn OFF — all data comes from DPP |
@@ -1776,8 +1815,8 @@ PHASE 4: REVIEW + STUDIO GUIDE
 
 PHASE 5: BUNDLE + DEPLOY
 ├── Bump version in project.json
-├── Run bundle.js → produces dist.html
-├── Run deploy.js → uploads to Kaltura CDN
+├── Run bundle.sh → produces dist.html
+├── Deploy via curl → uploads to Kaltura CDN
 ├── Return live URL + short link
 └── Suggest: "Test it now — verify opening, navigation, TTS, and contact collection"
 ```
@@ -1796,12 +1835,12 @@ PHASE 5: BUNDLE + DEPLOY
 
 ---
 
-## DETERMINISTIC TOOLS AND HOOKS
+## DETERMINISTIC TOOLS AND VALIDATION ARCHITECTURE
 
 The skill's reliability comes from three complementary layers:
 
-1. **Claude-as-Validator (Hooks)** — Agent and prompt-based hooks that use Claude itself to verify correctness. Zero runtime dependencies — runs inside Claude Code with no external tools.
-2. **Shell Scripts (Tools)** — Minimal POSIX shell for purely mechanical operations (file concatenation, version bumping). Uses only `curl`, `cat`, `sed`, `grep` — universally available.
+1. **Claude-as-Validator (Inline Rules + Planned Hooks)** — Self-validation rules in SKILL.md that Claude follows on every write. Future: agent/prompt hooks that enforce automatically.
+2. **Shell Scripts (Tools)** — Minimal POSIX shell for purely mechanical operations (file concatenation, version bumping). Uses only `cat`, `sed`, `grep`, `find` — universally available. On Windows without POSIX, Claude performs equivalent logic via Read/Write/Edit tools.
 3. **Claude-as-Executor (Instructions)** — For API calls (Kaltura deploy, KS generation), the skill instructs Claude to execute `curl` commands directly. Claude reads JSON responses natively — it IS a JSON parser.
 
 The philosophy: **AI does creative work AND semantic validation (it understands meaning). Shell scripts do mechanical text manipulation (concatenation, string replacement). API interaction is done directly by Claude via curl — no wrapper scripts needed because Claude can read JSON natively.**
@@ -1827,7 +1866,7 @@ Claude Code CLI can be installed via native installer (`curl | bash`), Homebrew 
 
 #### The Key Insight: Claude IS the Tool
 
-Traditional approach: write a `deploy.js` script that calls Kaltura API, parses JSON response, handles errors.
+Traditional approach: write a deploy script that calls Kaltura API, parses JSON response, handles errors.
 
 Our approach: the skill's instructions tell Claude exactly what `curl` commands to run, in what order, and what to look for in the response. Claude executes `curl` via Bash tool, reads the JSON response directly (it's text — Claude understands it natively), and makes decisions.
 
@@ -1963,21 +2002,23 @@ This is covered in detail in Section AA below.
 
 | Original Script | Eliminated Because | Replaced By |
 |---|---|---|
-| `new-project.js` | Directory scaffolding is trivial for Claude to do directly via Write tool | Skill instructions ("create these directories and files") |
-| `validate.js` | 9 validation checks split between mechanical (hooks) and semantic (agent hook at Stop) | Agent hook + prompt hooks + shell `grep` checks |
-| `deploy.js` | 5-step curl sequence that Claude executes directly + reads JSON responses natively | Skill instructions (see above) |
-| `tts-audit.js` | Collision/coverage analysis is perfect for an agent hook (read files, reason about content) | Agent hook at Phase 3 |
-| `studio-export.js` | Character counting + file concatenation — Claude does this naturally when reading files | Skill instructions ("read each studio file, count characters, warn if over 30K") |
-| `version-bump.js` | Kept as shell (see above) — arithmetic is not Claude's job | `version-bump.sh` |
-| `bundle.js` | Kept as shell (see above) — deterministic concatenation is not Claude's job | `bundle.sh` |
+| `new-project.js` (never built) | Directory scaffolding is trivial for Claude to do directly via Write tool | Skill instructions ("create these directories and files") |
+| `validate.js` (never built) | 9 validation checks are handled inline by Claude + SELF-VALIDATION RULES in SKILL.md | Inline validation rules + planned hooks |
+| `deploy.js` (never built) | 5-step curl sequence that Claude executes directly + reads JSON responses natively | Skill instructions with exact curl commands |
+| `tts-audit.js` (never built) | Collision/coverage analysis done by Claude inline during Phase 3 | SKILL.md Phase 3 checks |
+| `studio-export.js` (never built) | Character counting + file concatenation — Claude does this naturally when reading files | Skill instructions ("read each studio file, count characters, warn if over 30K") |
+| `version-bump.js` (replaced) | Arithmetic + string replacement is what shell was made for | `version-bump.sh` |
+| `bundle.js` (replaced) | Deterministic concatenation is what shell was made for | `bundle.sh` |
 
 **The principle:** If the operation requires JUDGMENT or API interaction, Claude does it directly (it's better at both than any script). If the operation requires EXACT DETERMINISTIC output (byte-identical bundling, version arithmetic), a shell script does it.
 
 ---
 
-### AA. Claude Code Hooks (Prompt and Agent Hooks)
+### AA. Claude Code Hooks (Prompt and Agent Hooks) — PLANNED
 
-Hooks are defined in the skill's YAML frontmatter and fire automatically on Claude Code lifecycle events. They enforce invariants that the AI might forget during a long session. The AI cannot bypass them — hooks operate outside the agent's control loop.
+> **Status:** The hook architecture below is designed but NOT YET implemented in the skill's YAML frontmatter. Currently, validation is enforced via SKILL.md's "SELF-VALIDATION RULES" section (inline instructions that Claude follows during generation). The hook design below represents the planned evolution — adding automatic enforcement that Claude cannot bypass.
+
+Hooks would be defined in the skill's YAML frontmatter and fire automatically on Claude Code lifecycle events. They enforce invariants that the AI might forget during a long session. The AI cannot bypass them — hooks operate outside the agent's control loop.
 
 All hooks use Claude itself as the validator — either `type: "prompt"` (single-turn LLM judgment, no tools, ~30s) or `type: "agent"` (multi-turn subagent with Read/Grep/Glob/Bash access, up to 50 tool calls, ~60s). Zero runtime dependencies. No scripts. No Node.js. No Python.
 
@@ -2002,7 +2043,7 @@ hooks:
             2. The content contains a 32-character hex string (potential admin secret)
             3. The content contains any value that looks like a Kaltura partner ID in a credential context
             4. The file is a slide JSON and is missing required fields: slide, title, category, talking_points
-            5. The file is a slide JSON and category is not one of: financial, strategic, operational, market, guidance
+            5. The file is a slide JSON and category is not one of: financial, legal, strategy, product, overview, section_divider
             6. The file is a slide JSON and talking_points is not an array of 1-4 items
             
             Otherwise return {"ok": true}
@@ -2070,7 +2111,7 @@ hooks:
             
             Read the project files and verify:
             1. All slide JSONs in data/slides/ have sequential numbering (no gaps, no duplicates)
-            2. Each slide's category is from the allowed enum: financial, strategic, operational, market, guidance
+            2. Each slide's category is from the allowed enum: financial, legal, strategy, product, overview, section_divider
             3. KNOWLEDGE_BASE_PROMPT.md total character count is under 30,000
             4. Every navigation phrase in KNOWLEDGE_BASE_PROMPT.md exactly matches the regex contract (terminal period, correct tense)
             5. project.json version field exists and is valid semver
