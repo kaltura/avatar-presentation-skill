@@ -1,0 +1,147 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "template": "report_review",
+
+  "avatar": {
+    "clientId": "",
+    "flowId": "",
+    "peerName": "Reader",
+    "connectionTimeout": 30000
+  },
+
+  "deck": {
+    "pdfUrl": "",
+    "pdfEntryId": ""
+  },
+
+  "branding": {
+    "title": "",
+    "subtitle": "Interactive AI-narrated report walkthrough",
+    "companyName": "",
+    "logo": "./assets/logo.svg",
+    "ogImage": "",
+    "theme": "dark",
+    "primaryColor": "#7c3aed",
+    "primaryColorHover": "#6d28d9"
+  },
+
+  "autoplay": {
+    "enabled": false,
+    "delayMs": 0,
+    "afterQuestionMs": 0,
+    "disableOnUserInteraction": true,
+    "resumeOnIdle": false
+  },
+
+  "captions": {
+    "enabled": true,
+    "rateCharsPerSec": 7,
+    "replacements": {}
+  },
+
+  "contact": {
+    "enabled": false,
+    "title": "",
+    "subtitle": "",
+    "fields": [],
+    "submitButtonText": "Submit",
+    "skipButtonText": "Maybe later",
+    "privacyNote": "",
+    "privacyLink": "",
+    "maxDeclines": 2,
+    "triggerAfterSlide": 0,
+    "triggerOnDetailedQuestion": false
+  },
+
+  "deploy": {
+    "partnerId": "${KALTURA_PARTNER_ID}",
+    "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "shortLinkSystemName": ""
+  },
+
+  "features": {
+    "screenCapture": true,
+    "genui": true,
+    "sessionTimeWarning": true,
+    "welcomeScreen": true,
+    "sessionMemory": true,
+    "debug": false
+  },
+
+  "screenCapture": {
+    "enabled": true,
+    "debounceMs": 300,
+    "throttleMs": 1500,
+    "jpegQuality": 0.85,
+    "maxWidth": 1920
+  },
+
+  "sessionMemory": {
+    "enabled": true,
+    "storageKey": "",
+    "ttlDays": 30
+  },
+
+  "accessGate": {
+    "enabled": false,
+    "codes": [],
+    "prompt": "Enter access code to continue",
+    "errorMessage": "Invalid code. Please try again.",
+    "bypassParam": "token"
+  },
+
+  "welcomeScreen": {
+    "title": "",
+    "subtitle": "",
+    "steps": [
+      { "icon": "play", "label": "Guided walkthrough", "description": "The avatar highlights key findings and walks you through the report." },
+      { "icon": "mic", "label": "Ask about any section", "description": "Speak naturally or type to dive deeper into specific findings." },
+      { "icon": "compass", "label": "Jump to sections", "description": "Use the sidebar to navigate directly to the section you need." },
+      { "icon": "file", "label": "Full report", "description": "Click the PDF link for the complete source document." },
+      { "icon": "cc", "label": "Captions available", "description": "Press C for closed captions. Fully accessible." },
+      { "icon": "clock", "label": "Your pace", "description": "No auto-advance — you control when to move to the next section." }
+    ],
+    "continueButtonText": "Start Review",
+    "micNote": "Microphone optional — you can also type."
+  },
+
+  "disclaimer": {
+    "heading": "AI-Powered Report Assistant Disclaimer",
+    "sections": [
+      {
+        "heading": "AI Technology",
+        "paragraphs": ["This walkthrough is delivered by an AI avatar trained on the report's content."]
+      },
+      {
+        "heading": "No Guarantee of Accuracy",
+        "paragraphs": ["AI-generated summaries may simplify or misstate findings. Always refer to the source document for authoritative data."]
+      },
+      {
+        "heading": "Source Attribution",
+        "paragraphs": ["All data presented originates from the source report. The avatar does not generate new analysis or recommendations beyond what is documented."]
+      },
+      {
+        "heading": "Data and Privacy",
+        "paragraphs": ["Session data may be recorded for quality improvement."]
+      }
+    ],
+    "startButtonText": "I Understand — Start Review",
+    "footerLinks": []
+  },
+
+  "ui": {
+    "chatPlaceholder": "Ask about any finding, or type 'next' to continue",
+    "sendButton": "Send",
+    "slideLabel": "Section {current} of {total}",
+    "avatarLoadingText": "Connecting analyst..."
+  },
+
+  "meta": {
+    "pageTitle": "",
+    "description": "Interactive report walkthrough — powered by AI avatar",
+    "robots": "noindex, nofollow",
+    "author": "",
+    "themeColor": "#0f0f1a"
+  }
+}

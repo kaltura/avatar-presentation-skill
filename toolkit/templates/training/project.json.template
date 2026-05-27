@@ -1,0 +1,147 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "template": "training",
+
+  "avatar": {
+    "clientId": "",
+    "flowId": "",
+    "peerName": "Learner",
+    "connectionTimeout": 30000
+  },
+
+  "deck": {
+    "pdfUrl": "",
+    "pdfEntryId": ""
+  },
+
+  "branding": {
+    "title": "",
+    "subtitle": "Interactive AI-narrated training module",
+    "companyName": "",
+    "logo": "./assets/logo.svg",
+    "ogImage": "",
+    "theme": "dark",
+    "primaryColor": "#059669",
+    "primaryColorHover": "#047857"
+  },
+
+  "autoplay": {
+    "enabled": true,
+    "delayMs": 20000,
+    "afterQuestionMs": 25000,
+    "disableOnUserInteraction": true,
+    "resumeOnIdle": false
+  },
+
+  "captions": {
+    "enabled": true,
+    "rateCharsPerSec": 6,
+    "replacements": {}
+  },
+
+  "contact": {
+    "enabled": false,
+    "title": "",
+    "subtitle": "",
+    "fields": [],
+    "submitButtonText": "Submit",
+    "skipButtonText": "Maybe later",
+    "privacyNote": "",
+    "privacyLink": "",
+    "maxDeclines": 2,
+    "triggerAfterSlide": 0,
+    "triggerOnDetailedQuestion": false
+  },
+
+  "deploy": {
+    "partnerId": "${KALTURA_PARTNER_ID}",
+    "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "shortLinkSystemName": ""
+  },
+
+  "features": {
+    "screenCapture": true,
+    "genui": true,
+    "sessionTimeWarning": true,
+    "welcomeScreen": true,
+    "sessionMemory": true,
+    "debug": false
+  },
+
+  "screenCapture": {
+    "enabled": true,
+    "debounceMs": 300,
+    "throttleMs": 1500,
+    "jpegQuality": 0.85,
+    "maxWidth": 1920
+  },
+
+  "sessionMemory": {
+    "enabled": true,
+    "storageKey": "",
+    "ttlDays": 30
+  },
+
+  "accessGate": {
+    "enabled": false,
+    "codes": [],
+    "prompt": "Enter access code to continue",
+    "errorMessage": "Invalid code. Please try again.",
+    "bypassParam": "token"
+  },
+
+  "welcomeScreen": {
+    "title": "",
+    "subtitle": "",
+    "steps": [
+      { "icon": "play", "label": "Learn at your pace", "description": "The avatar explains each concept and waits for you before moving on." },
+      { "icon": "mic", "label": "Ask questions anytime", "description": "Speak naturally or type — no question is too basic." },
+      { "icon": "compass", "label": "Jump to any module", "description": "Use the sidebar to skip to topics you need most." },
+      { "icon": "file", "label": "Reference materials", "description": "Click the PDF link for the complete training guide." },
+      { "icon": "cc", "label": "Captions available", "description": "Press C for closed captions. Fully accessible." },
+      { "icon": "clock", "label": "Resume anytime", "description": "Your progress is saved. Come back to continue where you left off." }
+    ],
+    "continueButtonText": "Start Learning",
+    "micNote": "Microphone optional — you can also type."
+  },
+
+  "disclaimer": {
+    "heading": "AI-Powered Training Assistant Disclaimer",
+    "sections": [
+      {
+        "heading": "AI Technology",
+        "paragraphs": ["This training is delivered by an AI-powered avatar trained on official course materials."]
+      },
+      {
+        "heading": "No Certification Claims",
+        "paragraphs": ["Completion of this module does not constitute certification unless explicitly stated by your organization's training department."]
+      },
+      {
+        "heading": "Content Accuracy",
+        "paragraphs": ["While based on current materials, AI-generated explanations may occasionally simplify or misstate concepts. Refer to official documentation for authoritative guidance."]
+      },
+      {
+        "heading": "Data and Privacy",
+        "paragraphs": ["Session data may be used to improve training content. No personally identifiable performance data is shared without consent."]
+      }
+    ],
+    "startButtonText": "I Understand — Begin Training",
+    "footerLinks": []
+  },
+
+  "ui": {
+    "chatPlaceholder": "Ask a question or type 'next' to continue",
+    "sendButton": "Send",
+    "slideLabel": "Module {current} of {total}",
+    "avatarLoadingText": "Connecting trainer..."
+  },
+
+  "meta": {
+    "pageTitle": "",
+    "description": "Interactive training module — powered by AI avatar",
+    "robots": "noindex, nofollow",
+    "author": "",
+    "themeColor": "#0f0f1a"
+  }
+}

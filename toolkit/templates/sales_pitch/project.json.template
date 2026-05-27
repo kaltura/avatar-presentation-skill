@@ -1,0 +1,151 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "template": "sales_pitch",
+
+  "avatar": {
+    "clientId": "",
+    "flowId": "",
+    "peerName": "Viewer",
+    "connectionTimeout": 30000
+  },
+
+  "deck": {
+    "pdfUrl": "",
+    "pdfEntryId": ""
+  },
+
+  "branding": {
+    "title": "",
+    "subtitle": "Interactive AI-narrated product presentation",
+    "companyName": "",
+    "logo": "./assets/logo.svg",
+    "ogImage": "",
+    "theme": "dark",
+    "primaryColor": "#6366f1",
+    "primaryColorHover": "#4f46e5"
+  },
+
+  "autoplay": {
+    "enabled": true,
+    "delayMs": 8000,
+    "afterQuestionMs": 12000,
+    "disableOnUserInteraction": true,
+    "resumeOnIdle": false
+  },
+
+  "captions": {
+    "enabled": true,
+    "rateCharsPerSec": 8,
+    "replacements": {}
+  },
+
+  "contact": {
+    "enabled": true,
+    "title": "Let's continue the conversation",
+    "subtitle": "Our team would love to show you more.",
+    "fields": [
+      { "type": "email", "label": "Work Email", "placeholder": "you@company.com" },
+      { "type": "text", "label": "Company", "placeholder": "Your company name" },
+      { "type": "text", "label": "Role", "placeholder": "Your role" }
+    ],
+    "submitButtonText": "Get in Touch",
+    "skipButtonText": "Maybe later",
+    "privacyNote": "Your info will be shared with our sales team for follow-up only.",
+    "privacyLink": "",
+    "maxDeclines": 2,
+    "triggerAfterSlide": 4,
+    "triggerOnDetailedQuestion": true
+  },
+
+  "deploy": {
+    "partnerId": "${KALTURA_PARTNER_ID}",
+    "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "shortLinkSystemName": ""
+  },
+
+  "features": {
+    "screenCapture": true,
+    "genui": true,
+    "sessionTimeWarning": true,
+    "welcomeScreen": true,
+    "sessionMemory": true,
+    "debug": false
+  },
+
+  "screenCapture": {
+    "enabled": true,
+    "debounceMs": 300,
+    "throttleMs": 1500,
+    "jpegQuality": 0.85,
+    "maxWidth": 1920
+  },
+
+  "sessionMemory": {
+    "enabled": true,
+    "storageKey": "",
+    "ttlDays": 30
+  },
+
+  "accessGate": {
+    "enabled": false,
+    "codes": [],
+    "prompt": "Enter access code to continue",
+    "errorMessage": "Invalid code. Please try again.",
+    "bypassParam": "token"
+  },
+
+  "welcomeScreen": {
+    "title": "",
+    "subtitle": "",
+    "steps": [
+      { "icon": "play", "label": "Watch & listen", "description": "The avatar walks you through key product capabilities automatically." },
+      { "icon": "mic", "label": "Ask anything", "description": "Speak naturally or type — ask about features, pricing, integrations." },
+      { "icon": "compass", "label": "Jump to topics", "description": "Use the sidebar or ask to jump directly to what interests you." },
+      { "icon": "file", "label": "View the deck", "description": "Click the PDF link in the header for the full presentation." },
+      { "icon": "cc", "label": "Captions available", "description": "Press C for closed captions. Fully keyboard-accessible." },
+      { "icon": "clock", "label": "10-minute sessions", "description": "Sessions are 10 minutes. Come back anytime to continue." }
+    ],
+    "continueButtonText": "Continue",
+    "micNote": "Microphone optional — you can also type."
+  },
+
+  "disclaimer": {
+    "heading": "AI-Powered Conversational Avatar Disclaimer",
+    "sections": [
+      {
+        "heading": "AI Technology",
+        "paragraphs": ["This presentation is delivered by an AI-powered digital avatar trained on official product materials."]
+      },
+      {
+        "heading": "No Contractual Authority",
+        "paragraphs": ["The avatar cannot make contractual commitments, provide binding quotes, or authorize discounts. All agreements require human confirmation."]
+      },
+      {
+        "heading": "No Guarantee of Accuracy",
+        "paragraphs": ["While trained on current materials, AI responses may contain errors. Verify specifications and pricing with your account representative."]
+      },
+      {
+        "heading": "Data and Privacy",
+        "paragraphs": ["Conversation data may be recorded for quality improvement. Contact information is shared only with the designated sales team."]
+      }
+    ],
+    "startButtonText": "I Acknowledge — Start Presentation",
+    "footerLinks": []
+  },
+
+  "ui": {
+    "chatPlaceholder": "Type a question here and hit Enter/Send, or just speak naturally",
+    "sendButton": "Send",
+    "slideLabel": "Slide {current} of {total}",
+    "avatarLoadingText": "Connecting avatar..."
+  },
+
+  "meta": {
+    "pageTitle": "",
+    "description": "Interactive product presentation — powered by AI avatar",
+    "robots": "noindex, nofollow",
+    "author": "",
+    "themeColor": "#0f0f1a"
+  }
+}

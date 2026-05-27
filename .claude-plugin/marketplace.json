@@ -1,0 +1,20 @@
+{
+  "name": "avatar-deck",
+  "id": "avatar-deck",
+  "owner": { "name": "Kaltura" },
+  "metadata": {
+    "description": "AI-narrated presentation builder for Kaltura's conversational avatar platform",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "avatar-deck",
+      "description": "Generate deployable avatar presentations from PDF decks",
+      "source": "./",
+      "version": "1.0.0",
+      "author": { "name": "Kaltura" },
+      "category": "development",
+      "keywords": ["avatar", "presentation", "kaltura"]
+    }
+  ]
+}

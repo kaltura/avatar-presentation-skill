@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PAGE_TITLE}}</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0f0f1a">
+
+    <!-- PDF.js for slide rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- Socket.IO for avatar connection -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <!-- eSelf Avatar SDK -->
+    <script src="https://cdn.eself.ai/sdk/latest/eself-sdk.min.js"></script>
+
+    <!-- Inline styles injected by bundle.sh -->
+</head>
+<body>
+    <a href="#presentation-container" class="skip-link">Skip to presentation</a>
+
+    <!-- Welcome Screen Overlay -->
+    <div id="welcome-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Welcome">
+        <div class="welcome-content">
+            <div class="welcome-logo" id="welcome-logo"></div>
+            <h1 id="welcome-title">{{TITLE}}</h1>
+            <p id="welcome-subtitle"></p>
+            <div id="welcome-steps" class="steps-grid"></div>
+            <button id="welcome-continue" class="btn-primary">Continue</button>
+            <p class="mic-note" id="mic-note"></p>
+        </div>
+    </div>
+
+    <!-- Disclaimer Overlay -->
+    <div id="disclaimer-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Disclaimer">
+        <div class="disclaimer-content">
+            <h2 id="disclaimer-heading"></h2>
+            <div id="disclaimer-sections"></div>
+            <button id="disclaimer-accept" class="btn-primary"></button>
+            <nav id="disclaimer-footer" class="footer-links"></nav>
+        </div>
+    </div>
+
+    <!-- Access Gate (optional) -->
+    <div id="access-gate" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Access verification">
+        <div class="gate-content">
+            <p id="gate-prompt"></p>
+            <input type="text" id="gate-input" autocomplete="off" aria-label="Access code">
+            <button id="gate-submit" class="btn-primary">Enter</button>
+            <p id="gate-error" class="error hidden"></p>
+        </div>
+    </div>
+
+    <!-- Main Presentation Container -->
+    <div id="presentation-container" class="hidden">
+        <!-- Header -->
+        <header id="app-header">
+            <div class="header-left">
+                <div id="header-logo"></div>
+                <div class="header-divider"></div>
+                <a id="pdf-link" class="pdf-badge" target="_blank" rel="noopener">
+                    <span class="badge">PDF</span>
+                    <span id="pdf-link-text"></span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3.5 3a.5.5 0 0 0 0 1h3.793L2.146 9.146a.5.5 0 1 0 .708.708L8 4.707V8.5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5h-5z"/></svg>
+                </a>
+            </div>
+            <div class="header-right">
+                <button id="clear-memory" class="icon-btn hidden" aria-label="Reset session" title="Reset session"></button>
+                <button id="debug-btn" class="icon-btn hidden" aria-label="Debug panel" title="Debug"></button>
+            </div>
+        </header>
+
+        <!-- Slide Area -->
+        <main id="slide-area" role="main">
+            <canvas id="slide-canvas" aria-label="Presentation slide"></canvas>
+            <div id="slide-progress" role="progressbar" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
+                <span id="slide-label"></span>
+            </div>
+        </main>
+
+        <!-- Navigation Sidebar -->
+        <nav id="slide-nav" aria-label="Slide navigation">
+            <ul id="nav-list"></ul>
+        </nav>
+
+        <!-- Avatar PIP -->
+        <div id="avatar-container" class="avatar-pip" role="complementary" aria-label="Avatar video">
+            <div id="avatar-video"></div>
+            <p id="avatar-loading" class="loading-text"></p>
+        </div>
+
+        <!-- Captions -->
+        <div id="captions-container" aria-live="polite" aria-atomic="true" class="captions hidden"></div>
+
+        <!-- Controls Bar -->
+        <footer id="controls-bar">
+            <div class="controls-left">
+                <button id="prev-slide" class="nav-btn" aria-label="Previous slide">&larr;</button>
+                <button id="next-slide" class="nav-btn" aria-label="Next slide">&rarr;</button>
+                <button id="autoplay-toggle" class="icon-btn" aria-label="Toggle autoplay"></button>
+            </div>
+            <div class="controls-center">
+                <input type="text" id="chat-input" autocomplete="off" aria-label="Chat input">
+                <button id="send-btn" class="btn-send" aria-label="Send message"></button>
+            </div>
+            <div class="controls-right">
+                <button id="cc-toggle" class="icon-btn" aria-label="Toggle closed captions"></button>
+                <button id="mute-toggle" class="icon-btn" aria-label="Mute microphone"></button>
+            </div>
+        </footer>
+
+        <!-- Session Warning -->
+        <div id="session-warning" class="warning-banner hidden" role="alert"></div>
+    </div>
+
+    <!-- GenUI Overlay (contact forms, links) -->
+    <div id="genui-overlay" class="genui-container hidden" role="dialog" aria-modal="true"></div>
+
+    <!-- Debug Panel -->
+    <div id="debug-panel" class="debug hidden" role="complementary" aria-label="Debug information">
+        <pre id="debug-content"></pre>
+    </div>
+
+    <div class="version-tag">v{{VERSION}}</div>
+
+    <!-- App script and data injected by bundle.sh below -->
+</body>
+</html>

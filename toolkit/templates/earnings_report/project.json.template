@@ -1,0 +1,167 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "template": "earnings_report",
+
+  "avatar": {
+    "clientId": "",
+    "flowId": "",
+    "peerName": "Investor",
+    "connectionTimeout": 30000
+  },
+
+  "deck": {
+    "pdfUrl": "",
+    "pdfEntryId": ""
+  },
+
+  "branding": {
+    "title": "",
+    "subtitle": "Interactive AI-narrated investor presentation",
+    "companyName": "",
+    "logo": "./assets/logo.svg",
+    "ogImage": "",
+    "theme": "dark",
+    "primaryColor": "#012169",
+    "primaryColorHover": "#1a3a8a"
+  },
+
+  "autoplay": {
+    "enabled": true,
+    "delayMs": 15000,
+    "afterQuestionMs": 20000,
+    "disableOnUserInteraction": true,
+    "resumeOnIdle": false
+  },
+
+  "captions": {
+    "enabled": true,
+    "rateCharsPerSec": 7,
+    "replacements": {
+      "gap": "GAAP",
+      "none gap": "Non-GAAP",
+      "eebeetdaa": "EBITDA",
+      "year over year": "YoY"
+    }
+  },
+
+  "contact": {
+    "enabled": true,
+    "title": "Stay connected with Investor Relations",
+    "subtitle": "We'd love to follow up with more details.",
+    "fields": [
+      { "type": "email", "label": "Email", "placeholder": "you@company.com" },
+      { "type": "tel", "label": "Phone (optional)", "placeholder": "+1 (555) 000-0000" }
+    ],
+    "submitButtonText": "Submit",
+    "skipButtonText": "Maybe later",
+    "privacyNote": "Your info will be shared with Investor Relations for follow-up only.",
+    "privacyLink": "",
+    "maxDeclines": 2,
+    "triggerAfterSlide": 4,
+    "triggerOnDetailedQuestion": true
+  },
+
+  "deploy": {
+    "partnerId": "${KALTURA_PARTNER_ID}",
+    "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "shortLinkSystemName": ""
+  },
+
+  "features": {
+    "screenCapture": true,
+    "genui": true,
+    "sessionTimeWarning": true,
+    "welcomeScreen": true,
+    "sessionMemory": true,
+    "debug": false
+  },
+
+  "screenCapture": {
+    "enabled": true,
+    "debounceMs": 300,
+    "throttleMs": 1500,
+    "jpegQuality": 0.85,
+    "maxWidth": 1920
+  },
+
+  "sessionMemory": {
+    "enabled": true,
+    "storageKey": "",
+    "ttlDays": 30
+  },
+
+  "accessGate": {
+    "enabled": false,
+    "codes": [],
+    "prompt": "Enter access code to continue",
+    "errorMessage": "Invalid code. Please try again.",
+    "bypassParam": "token"
+  },
+
+  "welcomeScreen": {
+    "title": "",
+    "subtitle": "",
+    "steps": [
+      { "icon": "play", "label": "Watch & listen", "description": "The avatar presents key highlights from each slide automatically." },
+      { "icon": "mic", "label": "Converse naturally", "description": "Ask questions by voice or text at any time." },
+      { "icon": "compass", "label": "Navigate by section", "description": "Use the sidebar or ask the avatar to jump to any topic." },
+      { "icon": "file", "label": "Open the full deck", "description": "Click the PDF link in the header to view the source document." },
+      { "icon": "cc", "label": "Fully accessible", "description": "Press C for closed captions. All controls are keyboard-accessible." },
+      { "icon": "clock", "label": "10-minute sessions", "description": "Sessions are limited to 10 minutes. You can return anytime to resume." }
+    ],
+    "continueButtonText": "Continue",
+    "micNote": "Microphone optional — you can also type."
+  },
+
+  "disclaimer": {
+    "heading": "AI-Powered Conversational Avatar Disclaimer",
+    "sections": [
+      {
+        "heading": "AI Technology",
+        "paragraphs": ["This presentation is delivered by an AI-powered digital avatar. The avatar is not a human and does not represent the personal views of any individual."]
+      },
+      {
+        "heading": "No Representation or Authority",
+        "paragraphs": ["The avatar has no authority to make commitments, representations, or agreements on behalf of the company."]
+      },
+      {
+        "heading": "No Guarantee of Accuracy",
+        "paragraphs": ["While the avatar is trained on official company materials, AI-generated responses may contain errors. Always verify critical information with official filings."]
+      },
+      {
+        "heading": "No Investment or Legal Advice",
+        "paragraphs": ["Nothing presented constitutes investment advice, legal advice, or a recommendation to buy or sell securities."]
+      },
+      {
+        "heading": "Forward-Looking Statements",
+        "paragraphs": ["This presentation may contain forward-looking statements subject to risks and uncertainties. Actual results may differ materially from those projected."]
+      },
+      {
+        "heading": "Human Oversight",
+        "paragraphs": ["This AI system operates under human oversight. For official information, contact Investor Relations directly."]
+      },
+      {
+        "heading": "Data and Privacy",
+        "paragraphs": ["Conversation data may be recorded for quality improvement. No personal financial information is collected or stored."]
+      }
+    ],
+    "startButtonText": "I Acknowledge — Start Presentation",
+    "footerLinks": []
+  },
+
+  "ui": {
+    "chatPlaceholder": "Type a question here and hit Enter/Send, or just speak naturally",
+    "sendButton": "Send",
+    "slideLabel": "Slide {current} of {total}",
+    "avatarLoadingText": "Connecting avatar..."
+  },
+
+  "meta": {
+    "pageTitle": "",
+    "description": "Interactive investor presentation — powered by AI avatar",
+    "robots": "noindex, nofollow",
+    "author": "",
+    "themeColor": "#0f0f1a"
+  }
+}
