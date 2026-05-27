@@ -29,6 +29,10 @@ The skill walks you through everything interactively:
 
 At the end you get a permanent shareable URL (`https://www.kaltura.com/tiny/XXXXX`).
 
+## Live Example
+
+See a presentation built with this skill: [Kaltura Q1 2026 Earnings Avatar](https://q1-26-avatar.kaltura.com/)
+
 ## What the Viewer Experiences
 
 - A conversational AI avatar narrates each slide in natural speech
