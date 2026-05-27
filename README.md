@@ -1,72 +1,150 @@
 # Avatar Deck — Conversational Presentation Builder
 
-A Claude Code plugin that generates complete, compliant, deployable avatar presentations from a PDF deck and website URL.
+A Claude Code skill that turns any PDF deck into a fully interactive, AI-narrated presentation powered by a [Kaltura Conversational Avatar](https://corp.kaltura.com/products/video-experiences/interactive-avatar/).
 
-**Output:** A working `dist.html` that connects to a configured Kaltura eSelf avatar and delivers an interactive, AI-narrated presentation experience.
+Give it a PDF and an avatar URL — it produces a single deployable `dist.html` with voice navigation, real-time Q&A, slide-aware screen capture, and contact collection. Share via a stable short link that always serves the latest version.
 
-## Install inside Claude Code
+## Quick Start
 
-```
-/plugin marketplace add zoharbabin/avatar-presentation-skill
-/plugin install avatar-deck@avatar-presentation-skill
-```
-
-## Usage
+### Install
 
 ```
-/avatar-deck path/to/deck.pdf
+/install github.com/kaltura/avatar-presentation-skill
 ```
 
-The skill guides you through:
+### Run
 
-1. **Input collection** — PDF, avatar URL, use case, partner ID
-2. **Analysis** — Slide extraction, progressive-reveal detection, brand scraping
-3. **Generation** — Slide JSONs, knowledge base, studio config, TTS maps
-4. **Validation** — Schema checks, navigation contracts, cross-references
-5. **Bundle & Deploy** — Deterministic HTML bundling, Kaltura CDN upload
+```
+/avatar-deck path/to/deck.pdf https://your-avatar-url
+```
+
+The skill walks you through everything interactively:
+
+1. **Collect inputs** — PDF, avatar URL, use case, partner ID, branding
+2. **Analyze deck** — Slide extraction, progressive-reveal detection, brand scraping from website
+3. **Generate project** — Slide JSONs, knowledge base, avatar studio config, TTS pronunciation maps
+4. **Validate** — Schema checks, navigation contracts, cross-references, bundle dry-run
+5. **Bundle** — Deterministic single-file HTML assembly
+6. **Deploy** — Upload to Kaltura CDN, update short link with cache-bust
+
+At the end you get a permanent shareable URL (`https://www.kaltura.com/tiny/XXXXX`).
+
+## What the Viewer Experiences
+
+- A conversational AI avatar narrates each slide in natural speech
+- Voice commands ("go to slide 5", "next", "back") navigate instantly
+- Viewers can ask questions — the avatar answers from slide data and domain knowledge
+- Auto-advance moves the presentation forward when idle
+- Session memory lets returning viewers pick up where they left off
+- Contact collection (optional) gathers leads at the right moment
+- Works on desktop and mobile, no install required
 
 ## Use Cases
 
-| Template | Audience | Key Features |
-|----------|----------|--------------|
-| `earnings_report` | Investors | SEC compliance, non-GAAP handling, formal tone |
-| `sales_pitch` | Prospects | CTA-driven, contact collection, energetic tone |
-| `training` | Learners | Patient pacing, assessment, no contact gate |
-| `report_review` | Stakeholders | Source attribution, analytical depth |
+| Template | Audience | Tone | Highlights |
+|----------|----------|------|------------|
+| `earnings_report` | Investors | Formal, precise | SEC safe harbor, non-GAAP handling, disclaimer gates |
+| `sales_pitch` | Prospects | Conversational, energetic | CTA-driven, contact collection, fast autoplay |
+| `training` | Learners | Patient, instructional | Slower pacing, no contact gate, accessibility-aware |
+| `report_review` | Stakeholders | Analytical, measured | Source attribution, manual navigation (no autoplay) |
 
 ## What Gets Generated
 
 ```
 your-project/
-├── project.json          # Full configuration
+├── project.json              # Configuration (branding, avatar, features, deploy)
 ├── data/
-│   ├── slides/           # Structured slide JSONs (1...N)
-│   └── [domain].json     # Supplementary data
+│   ├── slides/
+│   │   ├── slide_01.json     # Structured slide data (1...N, contiguous)
+│   │   └── ...
+│   └── [domain].json         # Supplementary data (financials, products, etc.)
 ├── studio/
-│   ├── KNOWLEDGE_BASE_PROMPT.md
-│   ├── AVATAR_GOALS.md
-│   ├── OBEY_RULES.md
-│   ├── REPLY_FORMAT.md
-│   └── SUMMARY_PROMPT.md
-├── .env                  # Deploy credentials (gitignored)
-└── dist.html             # Bundled artifact (gitignored)
+│   ├── KNOWLEDGE_BASE_PROMPT.md   # Avatar's full context and behavior rules
+│   ├── AVATAR_GOALS.md            # Conversation goals
+│   ├── OBEY_RULES.md              # Locked behavior contract (from toolkit)
+│   ├── REPLY_FORMAT.md            # TTS pronunciation + response structure
+│   └── SUMMARY_PROMPT.md          # Post-session summary template
+├── assets/
+│   └── logo.svg              # Brand logo (or .png)
+├── .env                      # Deploy credentials (gitignored, never in code)
+└── dist.html                 # Bundled single-file artifact (gitignored)
 ```
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
-- A Kaltura account with eSelf Avatar Studio access
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI, desktop app, or IDE extension)
+- A [Kaltura](https://corp.kaltura.com/) account with Avatar Studio access
 - A PDF deck to convert
+- Partner ID + Admin Secret (for deployment)
 
 ## Architecture
 
-Zero external dependencies. The toolkit uses only POSIX shell scripts and Claude as the executor/validator:
+```
+toolkit/
+├── engine/                  # Runtime (HTML + CSS + JS) — config-driven, zero hardcoded content
+│   ├── index.html           # Template with {{TITLE}}, {{VERSION}} placeholders
+│   ├── styles.css           # Themeable via primaryColor/primaryColorHover
+│   └── app.js               # Reads CONFIG, SLIDE_DATA, DOMAIN_DATA globals at runtime
+├── scripts/
+│   ├── bundle.sh            # Deterministic HTML assembly + validation
+│   └── version-bump.sh      # Semver patch/minor/major increment
+├── templates/               # Per-use-case defaults (4 templates)
+│   └── [use_case]/
+│       ├── project.json.template
+│       ├── AVATAR_GOALS.md
+│       ├── REPLY_FORMAT.md
+│       └── SUMMARY_PROMPT.md
+└── rules/
+    └── OBEY_RULES.md        # Locked avatar behavior contract (never generated, always copied)
+```
 
-- `toolkit/scripts/bundle.sh` — Deterministic HTML assembly
-- `toolkit/scripts/version-bump.sh` — Semver version management
-- `toolkit/engine/` — Presentation runtime (HTML + CSS + JS)
-- `toolkit/templates/` — Per-use-case defaults and studio prompts
-- `toolkit/rules/OBEY_RULES.md` — Locked avatar behavior contract
+**Key design decisions:**
+
+- **Config-driven engine** — `app.js` is identical across all projects; behavior is entirely controlled by `CONFIG`, `SLIDE_DATA`, and `DOMAIN_DATA` injected at bundle time.
+- **Single-file output** — `dist.html` bundles everything (HTML, CSS, JS, all slide data) into one file for CDN hosting. No server, no build tools, no runtime dependencies.
+- **Cross-platform** — Bundle scripts use POSIX shell. On Windows without a shell, the skill performs equivalent logic inline via Read/Write/Edit tools.
+- **Deploy via curl** — Upload uses Kaltura's document API (uploadToken + updateContent). Works identically on macOS, Linux, and Windows 10+.
+
+## Extending
+
+### Add a new template
+
+1. Create `toolkit/templates/your_template/` with these files:
+   - `project.json.template` — default config values for this use case
+   - `AVATAR_GOALS.md` — 6 numbered conversation goals
+   - `REPLY_FORMAT.md` — TTS pronunciation table + response structure
+   - `SUMMARY_PROMPT.md` — post-session summary format
+2. Add the template name to the `template` enum in SKILL.md's project.json schema
+3. Add a row to the template defaults table in SKILL.md
+
+The engine and bundle process are template-agnostic — they work with any valid `project.json`.
+
+### Modify the engine
+
+Edit files in `toolkit/engine/`. The engine expects three global constants at runtime:
+- `CONFIG` — the full `project.json` object
+- `SLIDE_DATA` — array of slide JSON objects in order
+- `DOMAIN_DATA` — object keyed by filename (e.g., `{"financials": {...}, "products": {...}}`)
+
+### Modify avatar behavior rules
+
+`toolkit/rules/OBEY_RULES.md` is the locked behavior contract copied into every project's `studio/` directory. Changes here affect all future projects.
+
+## Deployment Model
+
+Every deploy updates the same document entry and short link — viewers always get the latest version at the same URL.
+
+```
+PDF → [Skill generates project] → bundle.sh → dist.html
+                                                   ↓
+                              uploadToken + document_documents/updateContent
+                                                   ↓
+                              Short link updated with ?v=VERSION (cache-bust)
+                                                   ↓
+                              https://www.kaltura.com/tiny/XXXXX ← share this
+```
+
+Credentials live in `.env` (gitignored). The admin secret never touches committed files.
 
 ## License
 

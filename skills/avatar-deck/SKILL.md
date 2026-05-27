@@ -678,8 +678,6 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/actio
 ```
 
 Extract `id` from response → save to .env as `KALTURA_DOCUMENT_ENTRY_ID`.
-
-Extract `id` from response → save to .env as `KALTURA_DOCUMENT_ENTRY_ID`.
 Then proceed to Step 4 (create short link) as normal.
 
 After first deploy, `.env` should contain all four values:
