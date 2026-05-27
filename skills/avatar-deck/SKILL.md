@@ -273,7 +273,7 @@ Every project.json must conform to this structure:
 
   "deploy": {
     "partnerId": "${KALTURA_PARTNER_ID}",
-    "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "entryId": "${KALTURA_DOCUMENT_ENTRY_ID}",
     "shortLinkId": "${KALTURA_SHORT_LINK_ID}",
     "shortLinkSystemName": "customer-project-avatar"
   },
@@ -544,7 +544,7 @@ Follow exactly. Do NOT improvise API calls. Deploy ALWAYS updates existing entri
 Required values:
 - `KALTURA_PARTNER_ID` — numeric
 - `KALTURA_ADMIN_SECRET` — 32-char hex (never written to committed files)
-- `KALTURA_DATA_ENTRY_ID` — format: `1_xxxxxxxx`
+- `KALTURA_DOCUMENT_ENTRY_ID` — format: `1_xxxxxxxx`
 - `KALTURA_SHORT_LINK_ID` — short link ID (set after first deploy, blank on first run)
 
 ### Step 2: Generate KS
@@ -557,17 +557,43 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/session/action/start" \
 
 Response is a plain string (not JSON). Validate: must NOT start with `<` or `{`.
 
-### Step 3: Update data entry with new dist.html
+### Step 3: Upload dist.html to existing document entry
 
-Use `-F` (multipart), NOT `-d`. This UPDATES the existing entry content — same entry ID, same URL, new content:
+Use `uploadToken` + `document/action/updateContent`. Do NOT use `data/action/update` with `dataContent` — it causes faulty file delivery.
 
 ```bash
-curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/update" \
-  -F "ks=KS_TOKEN" -F "entryId=DATA_ENTRY_ID" \
-  -F "dataEntry[dataContent]=<./project-dir/dist.html" -F "format=1"
+# 3a: Create upload token (with correct fileName and content type)
+curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/add" \
+  -d "ks=KS_TOKEN" \
+  -d "uploadToken[fileName]=dist.html" \
+  -d "uploadToken[fileSize]=FILE_SIZE_BYTES" \
+  -d "format=1"
 ```
 
-Validate response: contains `"objectType":"KalturaDataEntry"`, `"status":2`, correct entry ID.
+Extract `id` from response → this is the UPLOAD_TOKEN_ID.
+
+```bash
+# 3b: Upload the file to the token
+curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/upload" \
+  -F "ks=KS_TOKEN" \
+  -F "uploadTokenId=UPLOAD_TOKEN_ID" \
+  -F "fileData=@./project-dir/dist.html;type=text/html;filename=dist.html" \
+  -F "format=1"
+```
+
+Validate response: `"status":2` (uploaded), `fileName` matches.
+
+```bash
+# 3c: Attach upload to existing document entry (replaces content, keeps same entry ID)
+curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/updateContent" \
+  -d "ks=KS_TOKEN" \
+  -d "entryId=DATA_ENTRY_ID" \
+  -d "resource[objectType]=KalturaUploadedFileTokenResource" \
+  -d "resource[token]=UPLOAD_TOKEN_ID" \
+  -d "format=1"
+```
+
+Validate response: `"objectType":"KalturaDocumentEntry"`, `"id"` matches DATA_ENTRY_ID.
 
 ### Step 4: Update short link (version cache-bust)
 
@@ -621,53 +647,64 @@ Extract `id` from response → save to .env as `KALTURA_SHORT_LINK_ID`.
 
 ### Constraints
 - NEVER write admin secret into dist.html, project.json, or any committed file
-- NEVER create a new data entry on update — always `data/action/update` on existing entry
+- NEVER use `data/action/update` with `dataContent` — causes faulty delivery. Use uploadToken + document/updateContent
+- NEVER create a new document entry on update — always `document/action/updateContent` on existing entry
 - NEVER create a new short link if one already exists — always update the existing one
 - NEVER deploy without bundling + validation pass + version bump
+- ALWAYS specify correct fileName and content type when uploading (dist.html → text/html, deck.pdf → application/pdf)
 - ALWAYS confirm with user before executing upload
 - ALWAYS include `?v=VERSION` in short link fullUrl for cache-busting
 
-### First-Time Setup (only when KALTURA_DATA_ENTRY_ID is missing)
+### First-Time Setup (only when KALTURA_DOCUMENT_ENTRY_ID is missing)
 
-If this is a brand new project with no existing data entry:
+If this is a brand new project with no existing document entry:
 
 ```bash
-# Create data entry (one time only)
-curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/add" \
-  -F "ks=KS_TOKEN" \
-  -F "dataEntry[name]=PROJECT_NAME Avatar Presentation" \
-  -F "dataEntry[dataContent]=<./project-dir/dist.html" \
-  -F "format=1"
+# Create document entry (one time only)
+curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/addFromUploadedFile" \
+  -d "ks=KS_TOKEN" \
+  -d "documentEntry[name]=PROJECT_NAME Avatar Presentation" \
+  -d "documentEntry[documentType]=12" \
+  -d "uploadTokenId=UPLOAD_TOKEN_ID" \
+  -d "format=1"
 ```
 
-Extract `id` from response → save to .env as `KALTURA_DATA_ENTRY_ID`.
+(First run Steps 3a + 3b to upload the file, then use the token here.)
+
+Extract `id` from response → save to .env as `KALTURA_DOCUMENT_ENTRY_ID`.
 Then proceed to Step 4 (create short link) as normal.
 
 After first deploy, `.env` should contain all four values:
 ```
 KALTURA_PARTNER_ID=1234567
 KALTURA_ADMIN_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-KALTURA_DATA_ENTRY_ID=1_xxxxxxxx
+KALTURA_DOCUMENT_ENTRY_ID=1_xxxxxxxx
 KALTURA_SHORT_LINK_ID=xxxxx
 ```
 
-All subsequent deploys: Steps 2→3→4→5→6 (update entry + update short link). Never recreate.
+All subsequent deploys: Steps 2→3→4→5→6 (upload + updateContent + update short link). Never recreate.
 
 ### PDF Upload (if local PDF needs CDN hosting)
 
 ```bash
-# A: Create upload token
+# A: Create upload token with correct fileName and content type
 curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/add" \
-  -d "ks=KS_TOKEN" -d "format=1"
-# B: Upload file to token
+  -d "ks=KS_TOKEN" \
+  -d "uploadToken[fileName]=deck.pdf" \
+  -d "format=1"
+
+# B: Upload file to token (specify type=application/pdf)
 curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/upload" \
-  -F "ks=KS_TOKEN" -F "uploadTokenId=TOKEN_ID" -F "fileData=@./path/to/deck.pdf"
-# C: Create entry + attach token
-curl -s -X POST "https://www.kaltura.com/api_v3/service/baseEntry/action/add" \
-  -d "ks=KS_TOKEN" -d "entry[name]=Customer Deck PDF" -d "entry[type]=10" -d "format=1"
-curl -s -X POST "https://www.kaltura.com/api_v3/service/baseEntry/action/addContent" \
-  -d "ks=KS_TOKEN" -d "entryId=NEW_ENTRY_ID" \
-  -d "resource[objectType]=KalturaUploadedFileTokenResource" -d "resource[token]=TOKEN_ID" -d "format=1"
+  -F "ks=KS_TOKEN" -F "uploadTokenId=TOKEN_ID" \
+  -F "fileData=@./path/to/deck.pdf;type=application/pdf;filename=deck.pdf"
+
+# C: Create document entry from token
+curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/addFromUploadedFile" \
+  -d "ks=KS_TOKEN" \
+  -d "documentEntry[name]=Customer Deck PDF" \
+  -d "documentEntry[documentType]=12" \
+  -d "uploadTokenId=TOKEN_ID" \
+  -d "format=1"
 ```
 
 PDF URL: `https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/PDF_ENTRY_ID/direct_serve/1/forceproxy/true/deck.pdf`

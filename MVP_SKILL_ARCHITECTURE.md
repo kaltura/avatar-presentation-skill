@@ -187,7 +187,7 @@ The skill's system prompt encodes the complete toolkit knowledge. This is what m
 
   "deploy": {
     "partnerId": "${KALTURA_PARTNER_ID}",
-    "entryId": "${KALTURA_DATA_ENTRY_ID}",
+    "entryId": "${KALTURA_DOCUMENT_ENTRY_ID}",
     "shortLinkSystemName": "customer-project-avatar"
   },
 
@@ -1898,7 +1898,7 @@ The skill's SKILL.md contains this exact procedure. Claude follows it step by st
 ## Deploy to Kaltura
 
 ### Step 1: Load credentials
-Read `.env` and extract: KALTURA_PARTNER_ID, KALTURA_ADMIN_SECRET, KALTURA_DATA_ENTRY_ID
+Read `.env` and extract: KALTURA_PARTNER_ID, KALTURA_ADMIN_SECRET, KALTURA_DOCUMENT_ENTRY_ID
 
 ### Step 2: Generate Kaltura Session (KS)
 Execute:
@@ -1910,14 +1910,21 @@ Execute:
 
 Extract the KS value from the JSON response (it's in the top-level string response).
 
-### Step 3: Upload dist.html to data entry
+### Step 3: Upload dist.html via uploadToken + document/updateContent
 Execute:
-  curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/update" \
-    -F "ks=$KS" \
-    -F "entryId=$KALTURA_DATA_ENTRY_ID" \
-    -F "dataEntry[dataContent]=<dist.html"
+  # Create upload token
+  curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/add" \
+    -d "ks=$KS" -d "uploadToken[fileName]=dist.html" -d "format=1"
+  # Upload file to token
+  curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/upload" \
+    -F "ks=$KS" -F "uploadTokenId=$TOKEN_ID" \
+    -F "fileData=@dist.html;type=text/html;filename=dist.html"
+  # Attach to existing document entry
+  curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/updateContent" \
+    -d "ks=$KS" -d "entryId=$KALTURA_DOCUMENT_ENTRY_ID" \
+    -d "resource[objectType]=KalturaUploadedFileTokenResource" -d "resource[token]=$TOKEN_ID" -d "format=1"
 
-Verify response contains "objectType":"KalturaDataEntry" and "status":2.
+Verify response contains "objectType":"KalturaDocumentEntry".
 
 ### Step 4: Report success
 Print the deployment details:
@@ -2033,7 +2040,7 @@ hooks:
             
             BLOCK if ANY of these are true:
             1. Command contains "rm -rf" or "rm -r" targeting a project directory — return {"ok": false, "reason": "Destructive delete blocked. Use git to discard changes instead."}
-            2. Command is a deploy operation (curl to kaltura.com/api_v3/service/data/action/update) — this is allowed ONLY if the skill has already run validation and version bump in this session.
+            2. Command is a deploy operation (curl to kaltura.com/api_v3/service/document_documents/action/updateContent) — this is allowed ONLY if the skill has already run validation and version bump in this session.
             
             For deploy commands: return {"ok": false, "reason": "Deploy blocked — must run validation and bump version first."} unless you can see from context that these steps completed.
             Otherwise return {"ok": true}
@@ -2118,7 +2125,7 @@ hooks:
 
 **What it validates:**
 - `rm -rf` / `rm -r` targeting project directory → unconditional block
-- Deploy commands (curl to Kaltura data/action/update) → block unless validation and version bump have been completed in this session
+- Deploy commands (curl to Kaltura document_documents/action/updateContent) → block unless validation and version bump have been completed in this session
 
 **On block:** Returns specific reason ("must validate first" or "destructive delete blocked").
 
