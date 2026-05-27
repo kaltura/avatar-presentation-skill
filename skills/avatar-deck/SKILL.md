@@ -66,29 +66,29 @@ Before writing any file, verify these invariants:
 
 ### PHASE 0: INPUT GATE
 
-Collect required inputs before proceeding. Present a checklist:
+Collect required inputs before proceeding. The user provides the PDF and avatar URL as arguments. Parse the avatar URL to extract `clientId` and `flowId`.
+
+Ask for what's still missing — present only what you don't already have:
 
 ```
 I need the following to get started:
 
-[ ] PDF deck (local path or URL)
-[ ] Avatar URL (e.g., https://meet.avatar.us.kaltura.ai/.../talk-to-agent?...&flow_id=agent-XX)
-[ ] Use case: earnings_report | sales_pitch | training | report_review
 [ ] Kaltura Partner ID
 [ ] Admin Secret (for .env — never stored in code)
+[ ] Use case: earnings_report | sales_pitch | training | report_review
+    (or I can infer from the deck content — just confirm)
 
 What do you have so far?
 ```
 
-Parse the avatar URL to extract `clientId` and `flowId`. Validate all inputs are present.
-HARD STOP if any required input is missing — explain the consequence and ask for it.
+HARD STOP if Partner ID or Admin Secret is missing — explain that deployment requires both.
 
 Never generate artifacts with placeholder values like `"TODO"` or `"REPLACE_ME"`.
 
-**Conditionally required (ask during analysis):**
-- Customer website URL (for branding extraction)
-- Hosted PDF URL (for header link)
-- Data entry ID (for deployment target)
+**For each of these, offer to do it yourself — don't just ask the user for a value:**
+- **PDF hosting:** "I have the local PDF. Want me to upload it to Kaltura and use that URL for the header link?"
+- **Data entry:** "Want me to create a new data entry on Kaltura for deployment, or do you have an existing entry ID?"
+- **Customer website URL:** "Do you have a website URL for branding extraction, or should I use the deck's branding?"
 - Contact team info (if contact collection enabled)
 - Additional data files (if deck references data not on slides)
 - Compliance requirements (for regulated industries)
