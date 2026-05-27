@@ -559,7 +559,7 @@ Response is a plain string (not JSON). Validate: must NOT start with `<` or `{`.
 
 ### Step 3: Upload dist.html to existing document entry
 
-Use `uploadToken` + `documents_documents/action/updateContent`. Do NOT use `data/action/update` with `dataContent` — it causes faulty file delivery.
+Use `uploadToken` + `document_documents/action/updateContent`. Do NOT use `data/action/update` with `dataContent` — it causes faulty file delivery.
 
 ```bash
 # 3a: Create upload token (with correct fileName and content type)
@@ -585,7 +585,7 @@ Validate response: `"status":2` (uploaded), `fileName` matches.
 
 ```bash
 # 3c: Attach upload to existing document entry (replaces content, keeps same entry ID)
-curl -s -X POST "https://www.kaltura.com/api_v3/service/documents_documents/action/updateContent" \
+curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/updateContent" \
   -d "ks=KS_TOKEN" \
   -d "entryId=DATA_ENTRY_ID" \
   -d "resource[objectType]=KalturaUploadedFileTokenResource" \
@@ -654,7 +654,7 @@ Extract `id` from response → save to .env as `KALTURA_SHORT_LINK_ID`.
 ### Constraints
 - NEVER write admin secret into dist.html, project.json, or any committed file
 - NEVER use `data/action/update` with `dataContent` — causes faulty file delivery
-- Use uploadToken + `documents_documents/action/updateContent` for all deploys
+- Use uploadToken + `document_documents/action/updateContent` for all deploys
 - NEVER create a new document entry on update — always updateContent on existing entry
 - NEVER create a new short link if one already exists — always update the existing one
 - NEVER deploy without bundling + validation pass + version bump
@@ -666,27 +666,18 @@ Extract `id` from response → save to .env as `KALTURA_SHORT_LINK_ID`.
 
 If this is a brand new project with no existing document entry:
 
+First run Steps 3a + 3b to upload the file, then create entry in one call:
+
 ```bash
-# A: Create the document entry (metadata only — no content yet)
-curl -s -X POST "https://www.kaltura.com/api_v3/service/baseEntry/action/add" \
+curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/addFromUploadedFile" \
   -d "ks=KS_TOKEN" \
-  -d "entry[objectType]=KalturaDocumentEntry" \
-  -d "entry[name]=PROJECT_NAME Avatar Presentation" \
-  -d "entry[documentType]=12" \
+  -d "documentEntry[name]=PROJECT_NAME Avatar Presentation" \
+  -d "documentEntry[documentType]=12" \
+  -d "uploadTokenId=UPLOAD_TOKEN_ID" \
   -d "format=1"
 ```
 
 Extract `id` from response → save to .env as `KALTURA_DOCUMENT_ENTRY_ID`.
-
-```bash
-# B: Attach content (run Steps 3a + 3b first to get UPLOAD_TOKEN_ID, then:)
-curl -s -X POST "https://www.kaltura.com/api_v3/service/documents_documents/action/addContent" \
-  -d "ks=KS_TOKEN" \
-  -d "entryId=DOCUMENT_ENTRY_ID" \
-  -d "resource[objectType]=KalturaUploadedFileTokenResource" \
-  -d "resource[token]=UPLOAD_TOKEN_ID" \
-  -d "format=1"
-```
 
 Extract `id` from response → save to .env as `KALTURA_DOCUMENT_ENTRY_ID`.
 Then proceed to Step 4 (create short link) as normal.
@@ -715,19 +706,12 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/uploa
   -F "ks=KS_TOKEN" -F "uploadTokenId=TOKEN_ID" \
   -F "fileData=@./path/to/deck.pdf;type=application/pdf;filename=deck.pdf"
 
-# C: Create document entry
-curl -s -X POST "https://www.kaltura.com/api_v3/service/baseEntry/action/add" \
+# C: Create document entry + attach content in one call
+curl -s -X POST "https://www.kaltura.com/api_v3/service/document_documents/action/addFromUploadedFile" \
   -d "ks=KS_TOKEN" \
-  -d "entry[objectType]=KalturaDocumentEntry" \
-  -d "entry[name]=Customer Deck PDF" \
-  -d "entry[documentType]=13" \
-  -d "format=1"
-# D: Attach uploaded file to the entry
-curl -s -X POST "https://www.kaltura.com/api_v3/service/documents_documents/action/addContent" \
-  -d "ks=KS_TOKEN" \
-  -d "entryId=PDF_ENTRY_ID" \
-  -d "resource[objectType]=KalturaUploadedFileTokenResource" \
-  -d "resource[token]=TOKEN_ID" \
+  -d "documentEntry[name]=Customer Deck PDF" \
+  -d "documentEntry[documentType]=13" \
+  -d "uploadTokenId=TOKEN_ID" \
   -d "format=1"
 ```
 
