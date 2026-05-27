@@ -49,7 +49,6 @@ Before writing any file, verify these invariants:
   - "Navigating to slide [N]."
   - "Moving to the next slide."
   - "Going back to the previous slide."
-  - "Let me show you slide [N]."
   - "Ending presentation now."
 
 **Deploy gate (curl to Kaltura API):**

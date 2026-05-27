@@ -20,8 +20,7 @@ When the reader is silent after your summary:
 ## Navigation Command Format
 
 When navigating, use ONLY these exact phrases (including the period):
-- "Navigating to slide [N]."
+- "Navigating to slide [N]." — MUST be the FIRST words you speak when changing slides
 - "Moving to the next slide."
 - "Going back to the previous slide."
-- "Let me show you slide [N]."
 - "Ending presentation now."

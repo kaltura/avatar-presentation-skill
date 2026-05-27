@@ -278,7 +278,7 @@ These are the contracts between generated content and the app.js runtime. If ANY
 
 | Contract | What app.js Expects | Consequence of Violation |
 |----------|--------------------|-----------------------|
-| Navigation phrases | Exact: "Navigating to slide [N].", "Moving to the next slide.", "Going back to the previous slide.", "Let me show you slide [N].", "Ending presentation now." | Slides don't change |
+| Navigation phrases | Exact: "Navigating to slide [N].", "Moving to the next slide.", "Going back to the previous slide.", "Ending presentation now." — MUST appear at START of speech, never at end | Slides don't change |
 | TTS replacements | Key = exact phonetic output from TTS engine, Value = display text for captions | Captions show garbled text |
 | Slide numbering | Contiguous 1...N matching PDF page count | Runtime indexing fails |
 | Category values | One of: `financial`, `legal`, `strategy`, `product`, `overview`, `section_divider` | Meta flags don't propagate |
@@ -1377,7 +1377,7 @@ The skill maintains a hardcoded registry of known failure modes — things that 
 
 | Mistake | Detection | Prevention |
 |---------|-----------|------------|
-| Navigation phrase not exact English | Regex `^(Navigating to slide \d+\.|Moving to the next slide\.|Going back to the previous slide\.|Let me show you slide \d+\.|Ending presentation now\.)$` | Knowledge base includes EXACT phrases with the instruction "NEVER paraphrase, translate, or vary these" |
+| Navigation phrase not exact English | Regex `^(Navigating to slide \d+\.|Moving to the next slide\.|Going back to the previous slide\.|Ending presentation now\.)$` | Knowledge base includes EXACT phrases with the instruction "NEVER paraphrase, translate, or vary these — navigation phrase MUST be FIRST word of response" |
 | Slide count mismatch | count(data/slides/*.json) != total_slides in KNOWLEDGE_BASE_PROMPT slide directory | validate.js checks, skill also cross-references during generation |
 | Slide numbers have gaps | [1, 2, 4, 5] — missing 3 | Sequential integer check in validate.js |
 | Navigation to slide 0 or > N | Knowledge base slide directory lists invalid slide | Skill bounds-checks slide directory against actual slide count |
