@@ -4,7 +4,7 @@ A Claude Code plugin that generates complete, compliant, deployable avatar prese
 
 **Output:** A working `dist.html` that connects to a configured Kaltura eSelf avatar and delivers an interactive, AI-narrated presentation experience.
 
-## Install
+## Install inside Claude Code
 
 ```
 /plugin marketplace add zoharbabin/avatar-presentation-skill
