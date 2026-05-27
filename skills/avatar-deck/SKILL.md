@@ -15,7 +15,12 @@ allowed-tools:
   - Bash(head *)
   - Bash(mkdir *)
   - Bash(curl *)
+  - Bash(curl.exe *)
   - Bash(chmod *)
+  - Bash(powershell *)
+  - Bash(Get-Content *)
+  - Bash(Get-ChildItem *)
+  - Bash(Measure-Object *)
   - Agent
 ---
 
@@ -64,6 +69,8 @@ Before writing any file, verify these invariants:
 ## SESSION FLOW
 
 ### PHASE 0: INPUT GATE
+
+**Platform detection:** Before anything else, determine if a POSIX shell is available. Run `sh --version` or `uname`. If it fails (Windows without WSL/Git Bash), set an internal flag: all bundling and validation will use Read/Write/Edit tools directly (see "Bundle logic (for fallback/Windows)" in Phase 5). Deploy uses `curl`/`curl.exe` which is available on all platforms (Windows 10+, macOS, Linux).
 
 Collect required inputs before proceeding. The user provides the PDF and avatar URL as arguments. Parse the avatar URL to extract `clientId` and `flowId`.
 
@@ -367,6 +374,7 @@ Each file in `data/slides/` follows this structure exactly:
 ```
 
 **Rules:**
+- Filenames zero-padded to 2 digits: `slide_01.json` through `slide_99.json` (ensures correct sort order on all platforms)
 - Slide numbers contiguous (1, 2, 3... N) with no gaps
 - `talking_points`: what the avatar SAYS — conversational, max 4 items, min 1
 - `narrator_guidance`: HOW to present — tone, emphasis, compliance notes (never spoken)

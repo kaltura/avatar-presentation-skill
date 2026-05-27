@@ -86,10 +86,10 @@ BODY_END=$(grep -n '</body>' "$TMPFILE" | tail -1 | cut -d: -f1)
   echo "<script>"
   echo "const CONFIG = $(cat "$PROJECT_DIR/project.json");"
 
-  # Slide data array
+  # Slide data array (sorted numerically to handle non-zero-padded names)
   echo "const SLIDE_DATA = ["
   FIRST=1
-  for f in "$SLIDES_DIR"/slide_*.json; do
+  for f in $(find "$SLIDES_DIR" -name 'slide_*.json' | sort -t_ -k2 -n); do
     if [ -f "$f" ]; then
       if [ $FIRST -eq 1 ]; then
         FIRST=0
