@@ -8,7 +8,10 @@
     <meta name="theme-color" content="#0f0f1a">
     <meta property="og:title" content="Avatar Deck — AI-Narrated Presentation Builder">
     <meta property="og:description" content="Turn any PDF deck into a fully interactive, AI-narrated presentation powered by a Kaltura Conversational Avatar.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/kaltura/avatar-presentation-skill/main/social-preview.png">
+    <meta property="og:image" content="https://kaltura.github.io/avatar-presentation-skill/social-preview.png">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="640">
+    <meta property="og:url" content="https://kaltura.github.io/avatar-presentation-skill/">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,24 +43,22 @@
             max-width: 1100px;
             margin: 0 auto;
             padding: 0 24px;
-            position: relative;
-            z-index: 1;
         }
 
-        /* Hero */
+        /* Hero — split layout */
         .hero {
             padding: 80px 0 60px;
-            text-align: center;
-            position: relative;
-            background: url('./hero-bg.png') center top / cover no-repeat;
         }
 
-        .hero::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to bottom, rgba(15, 15, 26, 0.75) 0%, rgba(15, 15, 26, 0.92) 70%, var(--bg) 100%);
-            pointer-events: none;
+        .hero .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .hero-text {
+            text-align: left;
         }
 
         .badge {
@@ -82,7 +83,7 @@
         }
 
         h1 {
-            font-size: clamp(2.2rem, 5vw, 3.5rem);
+            font-size: clamp(2rem, 4vw, 3rem);
             font-weight: 800;
             letter-spacing: -0.02em;
             line-height: 1.1;
@@ -97,16 +98,14 @@
         }
 
         .hero-sub {
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             color: var(--text-muted);
-            max-width: 640px;
-            margin: 0 auto 36px;
+            margin-bottom: 32px;
         }
 
         .hero-actions {
             display: flex;
             gap: 14px;
-            justify-content: center;
             flex-wrap: wrap;
         }
 
@@ -145,33 +144,88 @@
             transform: translateY(-1px);
         }
 
-        /* Demo embed */
-        .demo-section {
-            padding: 40px 0 80px;
-            text-align: center;
-        }
-
-        .demo-frame {
+        /* Hero demo preview */
+        .hero-preview {
             position: relative;
-            max-width: 960px;
-            margin: 0 auto;
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--border);
             background: var(--surface);
-            aspect-ratio: 16 / 9;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         }
 
-        .demo-frame iframe {
+        .hero-preview a {
+            display: block;
+            position: relative;
+        }
+
+        .hero-preview img {
             width: 100%;
-            height: 100%;
-            border: none;
+            height: auto;
+            display: block;
         }
 
-        .demo-caption {
-            margin-top: 12px;
-            font-size: 0.85rem;
+        .hero-preview .play-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.25);
+            transition: background 0.2s;
+        }
+
+        .hero-preview a:hover .play-overlay {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .play-overlay svg {
+            width: 56px;
+            height: 56px;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+        }
+
+        .hero-caption {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.8rem;
             color: var(--text-muted);
+        }
+
+        /* Install */
+        .install-section {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .install-section h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .install-section > .container > p {
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+
+        .code-block {
+            display: inline-block;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 32px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.95rem;
+            text-align: left;
+        }
+
+        .code-block .comment {
+            color: var(--text-muted);
+        }
+
+        .code-block .command {
+            color: var(--accent);
         }
 
         /* Features */
@@ -226,43 +280,6 @@
             font-size: 0.9rem;
             color: var(--text-muted);
             line-height: 1.5;
-        }
-
-        /* Install */
-        .install-section {
-            padding: 80px 0;
-            text-align: center;
-        }
-
-        .install-section h2 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-
-        .install-section p {
-            color: var(--text-muted);
-            margin-bottom: 32px;
-        }
-
-        .code-block {
-            display: inline-block;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px 32px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 0.95rem;
-            text-align: left;
-            position: relative;
-        }
-
-        .code-block .comment {
-            color: var(--text-muted);
-        }
-
-        .code-block .command {
-            color: var(--accent);
         }
 
         /* Use cases */
@@ -327,8 +344,14 @@
             color: var(--primary);
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             .hero { padding: 50px 0 40px; }
+            .hero .container {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+            .hero-text { text-align: center; }
+            .hero-actions { justify-content: center; }
             .features, .install-section, .use-cases { padding: 50px 0; }
             .code-block { padding: 16px 20px; font-size: 0.85rem; }
         }
@@ -337,33 +360,48 @@
 <body>
     <section class="hero">
         <div class="container">
-            <div class="badge">
-                <span class="badge-dot"></span>
-                Claude Code Skill
+            <div class="hero-text">
+                <div class="badge">
+                    <span class="badge-dot"></span>
+                    Claude Code Skill
+                </div>
+                <h1>Turn any PDF into an<br><span class="gradient">AI-narrated presentation</span></h1>
+                <p class="hero-sub">
+                    A Claude Code skill that generates complete, deployable avatar presentations from a PDF deck. Voice navigation, real-time Q&A, session memory — delivered as a single HTML file.
+                </p>
+                <div class="hero-actions">
+                    <a href="https://q1-26-avatar.kaltura.com/" target="_blank" rel="noopener" class="btn btn-primary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+                        See Live Demo
+                    </a>
+                    <a href="https://github.com/kaltura/avatar-presentation-skill" class="btn btn-secondary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        View on GitHub
+                    </a>
+                </div>
             </div>
-            <h1>Turn any PDF into an<br><span class="gradient">AI-narrated presentation</span></h1>
-            <p class="hero-sub">
-                A Claude Code skill that generates complete, deployable avatar presentations from a PDF deck. Voice navigation, real-time Q&A, session memory — delivered as a single HTML file.
-            </p>
-            <div class="hero-actions">
-                <a href="https://q1-26-avatar.kaltura.com/" target="_blank" rel="noopener" class="btn btn-primary">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
-                    See Live Demo
+            <div class="hero-preview">
+                <a href="https://q1-26-avatar.kaltura.com/" target="_blank" rel="noopener" title="Launch live demo">
+                    <img src="./demo-screenshot.png" alt="Screenshot of the Kaltura Q1 2026 Earnings Avatar Presentation">
+                    <div class="play-overlay">
+                        <svg viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+                    </div>
                 </a>
-                <a href="https://github.com/kaltura/avatar-presentation-skill" class="btn btn-secondary">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                    View on GitHub
-                </a>
+                <p class="hero-caption">Kaltura Q1 2026 Earnings — built with this skill</p>
             </div>
         </div>
     </section>
 
-    <section class="demo-section">
+    <section class="install-section">
         <div class="container">
-            <div class="demo-frame">
-                <iframe src="https://q1-26-avatar.kaltura.com/" loading="lazy" allow="microphone; camera" title="Live demo: Kaltura Q1 2026 Earnings Avatar Presentation"></iframe>
+            <h2>Get started in 30 seconds</h2>
+            <p>Install the skill, point it at a PDF, and let it build everything.</p>
+            <div class="code-block">
+                <span class="comment"># Install the skill</span><br>
+                <span class="command">/install github.com/kaltura/avatar-presentation-skill</span><br><br>
+                <span class="comment"># Generate a presentation</span><br>
+                <span class="command">/avatar-deck ./deck.pdf https://your-avatar-url</span>
             </div>
-            <p class="demo-caption">Live example: Kaltura Q1 2026 Earnings — built entirely with this skill</p>
         </div>
     </section>
 
@@ -413,19 +451,6 @@
                     <h3>Single HTML file</h3>
                     <p>No server, no build tools, no runtime dependencies. Share via a stable Kaltura short link.</p>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="install-section">
-        <div class="container">
-            <h2>Get started in 30 seconds</h2>
-            <p>Install the skill, point it at a PDF, and let it build everything.</p>
-            <div class="code-block">
-                <span class="comment"># Install the skill</span><br>
-                <span class="command">/install github.com/kaltura/avatar-presentation-skill</span><br><br>
-                <span class="comment"># Generate a presentation</span><br>
-                <span class="command">/avatar-deck ./deck.pdf https://your-avatar-url</span>
             </div>
         </div>
     </section>
