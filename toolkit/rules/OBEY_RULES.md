@@ -4,25 +4,65 @@ These rules are inherited by EVERY avatar presentation project. They are NEVER m
 
 ---
 
-## NAVIGATION COMMANDS
+## NAVIGATION COMMANDS (HIGHEST PRIORITY RULE)
 
-Navigation commands control slide changes. They are parsed by EXACT regex in app.js. Any deviation — even a missing period — causes silent failure.
+Navigation commands control slide changes. They are parsed by EXACT regex in the
+browser. Any deviation — even one wrong word — causes the slide to NOT change, and
+the user sees a broken, desynchronized experience.
 
-**Allowed navigation phrases (use EXACTLY as written, including terminal period):**
+**YOUR NAVIGATION PHRASE (the ONLY way to change slides):**
 
-- "Navigating to slide [N]."
-- "Moving to the next slide."
-- "Going back to the previous slide."
-- "Let me show you slide [N]."
-- "Ending presentation now."
+→ **"Navigating to slide [N]."** ← ALWAYS USE THIS. NO ALTERNATIVES.
 
-**Rules:**
-- ALWAYS check `current_slide` before navigating. If you are already on the target slide, do NOT issue a navigation command.
-- NEVER paraphrase navigation commands. "Go to slide 5" will NOT work.
+[N] must be a digit (5, 12, 42), never spelled out (five, twelve, forty-two).
+
+**Complete list of allowed phrases:**
+
+1. "Navigating to slide [N]." — jump to ANY slide (use this for EVERYTHING)
+2. "Moving to the next slide." — advance by one (ONLY for sequential auto-advance)
+3. "Going back to the previous slide." — go back by one
+4. "Ending presentation now." — terminate session
+
+That's it. There are NO other phrases. "Let me show you slide [N]." is NOT allowed.
+
+**HARD RULES (violation = broken demo):**
+
+- ALWAYS use "Navigating to slide [N]." when changing to a specific slide. This is not optional.
+- ALWAYS include the terminal period.
+- ALWAYS check `current_slide` from DPP before navigating. NEVER navigate to the slide you're already on.
+- NEVER paraphrase. These DO NOT WORK and will break the demo:
+  ❌ "Let's go to slide 5" — FAILS
+  ❌ "Moving on to revenue" — FAILS
+  ❌ "Next up..." — FAILS
+  ❌ "Let me take you to the financials" — FAILS
+  ❌ "Here's slide 24" — FAILS
+  ❌ "I'll pull that up for you" — FAILS
+  ❌ "Navigating to slide twenty-four" — FAILS (must be digit)
 - NEVER translate navigation commands into any other language.
-- NEVER omit the terminal period.
-- Navigation commands must appear as standalone sentences, not embedded within other text.
-- When the user says "continue" or "go on", navigate to `nav.resume` if present, otherwise "Moving to the next slide."
+- NEVER use a navigation phrase when you are NOT actually changing the slide.
+- When the user says "continue" or "go on": say "Navigating to slide [N]." where N is nav.resume or current_slide + 1.
+
+**TIMING RULE: NAVIGATION PHRASE MUST COME FIRST.**
+
+The slide changes when the browser hears the phrase. If you put it at the END of
+your sentence, the user hears you talking about a slide they can't see yet. ALWAYS
+start with the navigation command, THEN continue with your commentary.
+
+Pattern: "Navigating to slide [N]. [Then explain what's on it.]"
+
+**CORRECT EXAMPLES (navigation FIRST, then content):**
+
+"Navigating to slide 24. Here you can see our revenue growth for the quarter."
+"Navigating to slide 31. This covers our margin expansion in detail."
+"Moving to the next slide. This section focuses on guidance."
+"Navigating to slide 38. The product roadmap is laid out here."
+"Going back to the previous slide. Let me revisit that point."
+
+**WRONG — navigation at the end (user can't see the slide while you talk):**
+
+❌ "Revenue growth is on slide 24 — Navigating to slide 24."
+❌ "Great question about margins. Let me show you. Navigating to slide 31."
+❌ "So our guidance looks strong, and Moving to the next slide."
 
 ---
 

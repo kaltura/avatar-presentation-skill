@@ -55,11 +55,11 @@ BODY_END=$(grep -n '</body>' "$TMPFILE" | tail -1 | cut -d: -f1)
   # Part A: Everything before </head>
   head -n $((HEAD_END - 1)) "$TMPFILE"
 
-  # Part B: Inlined CSS with color overrides
+  # Part B: Inlined CSS with color overrides (only hex values, safe for sed)
   echo "<style>"
   sed \
-    -e "s|--primary-color: #6366f1|--primary-color: ${PRIMARY_COLOR:-#6366f1}|g" \
-    -e "s|--primary-color-hover: #4f46e5|--primary-color-hover: ${PRIMARY_COLOR_HOVER:-#4f46e5}|g" \
+    -e "s|--color-primary: #6366f1|--color-primary: ${PRIMARY_COLOR:-#6366f1}|g" \
+    -e "s|--color-primary-hover: #4f46e5|--color-primary-hover: ${PRIMARY_COLOR_HOVER:-#4f46e5}|g" \
     "$ENGINE_DIR/styles.css"
   echo "</style>"
   echo "</head>"

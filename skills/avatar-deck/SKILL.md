@@ -362,7 +362,7 @@ Each file in `data/slides/` follows this structure exactly:
 
 | Contract | Exact Format Required | Consequence of Violation |
 |----------|----------------------|--------------------------|
-| Navigation phrases | "Navigating to slide [N].", "Moving to the next slide.", "Going back to the previous slide.", "Let me show you slide [N].", "Ending presentation now." | Slides don't change |
+| Navigation phrases | "Navigating to slide [N].", "Moving to the next slide.", "Going back to the previous slide.", "Ending presentation now." | Slides don't change |
 | TTS replacements | Key = phonetic output, Value = display text | Captions show garbled text |
 | Slide numbering | Contiguous 1...N matching slide count | Runtime indexing fails |
 | Category values | financial, legal, strategy, product, overview, section_divider | Meta flags don't propagate |
@@ -373,6 +373,125 @@ Each file in `data/slides/` follows this structure exactly:
 - Wrong: "Go to the next slide" (wrong phrasing)
 - Wrong: "Navigating to slide 5" (missing terminal period)
 - Correct: "Navigating to slide 5."
+
+---
+
+## NAVIGATION ENFORCEMENT (CRITICAL — Locked Template)
+
+This is the #1 cause of demo failures. The avatar LLM often paraphrases navigation
+commands (e.g., "Let's look at slide 5" or "Moving on to the next topic"). The
+runtime regex ONLY matches the exact phrases below. If the avatar says ANYTHING else,
+the slide will NOT change and the user sees a broken experience.
+
+### The Problem
+
+The LLM powering the avatar naturally varies its language. Without extreme enforcement
+in the Knowledge Base, it will say things like:
+- "Let's move on to revenue" → NO MATCH, slide stays
+- "I'll take you to the financials" → NO MATCH
+- "Here's slide 24" → NO MATCH
+- "Next up..." → NO MATCH
+- "Let me navigate to that slide" → NO MATCH (wrong syntax)
+
+### The Solution: LOCKED Navigation Section in KNOWLEDGE_BASE_PROMPT
+
+Every generated KNOWLEDGE_BASE_PROMPT.md MUST include this EXACT section (adapt only
+the slide count number). This text is NON-NEGOTIABLE and must not be paraphrased:
+
+```markdown
+## ████ SLIDE NAVIGATION — MANDATORY SYNTAX ████
+
+When you navigate to a different slide, you MUST use EXACTLY one of these phrases.
+The browser parses your speech with regex. If you deviate by even one word, the
+slide will NOT change and the user sees a broken, out-of-sync experience.
+
+### ALLOWED NAVIGATION PHRASES (ONLY these exist, no others):
+
+| When to use | EXACT phrase (say this verbatim) |
+|-------------|----------------------------------|
+| Change to ANY specific slide | "Navigating to slide [N]." |
+| Sequential auto-advance (next) | "Moving to the next slide." |
+| Go back by one | "Going back to the previous slide." |
+| End the session | "Ending presentation now." |
+
+[N] = the slide number as a digit (e.g., 5, 12, 42). NEVER spell out the number.
+
+**"Navigating to slide [N]." is the ONLY way to jump to a slide. There are no alternatives.**
+
+### HARD RULES:
+
+1. **ALWAYS say "Navigating to slide [N]." when changing slides** — this is your
+   PRIMARY navigation phrase. Use it 90%+ of the time.
+2. **ALWAYS put the navigation phrase FIRST** — before any commentary about the
+   target slide. The slide changes when the browser hears the phrase. If it comes
+   last, the user hears you talk about a slide they cannot see yet.
+3. The phrase MUST be a complete sentence ending with a period.
+4. The phrase MUST be spoken aloud (not just thought).
+5. NEVER paraphrase: "Let's look at slide 5" ❌, "Moving on to financials" ❌,
+   "Here's the next slide" ❌, "I'll show you" ❌, "Next up" ❌
+6. NEVER use navigation phrases when you are NOT actually changing the slide.
+7. NEVER navigate to the slide you are already on.
+8. After presenting slide content, if auto-advancing: "Moving to the next slide."
+9. To resume after a detour: "Navigating to slide [N]." (the resume target)
+10. Check current_slide in DPP before navigating — never go to current_slide.
+11. [N] MUST be a digit (5, 12, 42). NEVER spell it out (five, twelve, forty-two).
+
+### CORRECT PATTERN: Navigation FIRST, then commentary.
+
+The user needs to SEE the slide WHILE you talk about it. The slide changes the
+instant the browser hears "Navigating to slide [N]." — so say it FIRST, then
+continue talking about what's on the slide.
+
+"Navigating to slide [N]. [Now describe what's on it.]"
+
+### EXAMPLES OF CORRECT USAGE:
+
+User: "What about revenue growth?"
+Avatar: "Navigating to slide 24. Here you can see our Q1 revenue growth in detail."
+
+User: "Go back"
+Avatar: "Going back to the previous slide."
+
+User: (silence after avatar finishes presenting)
+Avatar: "Moving to the next slide. This section covers our product roadmap."
+
+User: "Can you show me the product roadmap?"
+Avatar: "Navigating to slide 38. The full roadmap is laid out here."
+
+User: "I think we're done"
+Avatar: "Ending presentation now."
+
+### EXAMPLES OF WRONG USAGE (NEVER DO THIS):
+
+❌ "Let me show you slide 38." (NOT an allowed phrase — use "Navigating to slide 38.")
+❌ "Revenue growth is covered in detail — Navigating to slide 24." (nav at END — user can't see slide while you talk)
+❌ "Let me tell you about margins. Navigating to slide 31." (nav at END)
+❌ "Let's take a look at the financials on slide 24." (wrong phrasing entirely)
+❌ "Moving on to discuss revenue..." (no exact phrase)
+❌ "I'll navigate us to the next section." (paraphrase)
+❌ "Slide 24 covers this — let me pull it up." (not an exact phrase)
+❌ "Next slide please." (not an exact phrase)
+❌ "Navigating to slide twenty-four." (spelled out — must be digit)
+```
+
+### Enforcement in OBEY_RULES.md
+
+The locked OBEY_RULES must ALSO contain a navigation rule. Verify the file at
+`toolkit/rules/OBEY_RULES.md` includes:
+```
+NAVIGATION: When changing slides, you MUST say EXACTLY "Navigating to slide [N]."
+with the number as a digit and a terminal period. No other phrasing triggers the
+slide change. If you forget, the presentation breaks.
+```
+
+### Validation Gate
+
+Before marking Phase 3 as PASS, verify:
+1. KNOWLEDGE_BASE_PROMPT.md contains the section header "SLIDE NAVIGATION — MANDATORY SYNTAX"
+2. KNOWLEDGE_BASE_PROMPT.md contains ALL 5 exact phrases in a table
+3. KNOWLEDGE_BASE_PROMPT.md contains "NEVER paraphrase" instruction
+4. OBEY_RULES.md contains "Navigating to slide [N]." instruction
+5. Examples section (section 20) includes at least 3 navigation examples using exact phrases
 
 ---
 
@@ -508,98 +627,356 @@ The Dynamic Prompt Protocol payload injected on every slide change:
 
 ---
 
-## DEPLOY PROCEDURE (Execute via curl)
+## DEPLOY PROCEDURE (Cross-Platform curl Commands)
 
-### Step 1: Load credentials
-Read `.env` and extract: `KALTURA_PARTNER_ID`, `KALTURA_ADMIN_SECRET`, `KALTURA_DATA_ENTRY_ID`
+Deploy uses ONLY curl — no shell scripts, no platform-specific tools. These commands
+work on macOS, Linux, and Windows (with curl installed, which ships with Windows 10+).
+
+**CRITICAL: Follow these steps EXACTLY. Do NOT improvise API calls.**
+
+### Step 1: Load credentials from .env
+
+Read the project's `.env` file and extract these three values:
+- `KALTURA_PARTNER_ID` — numeric partner ID
+- `KALTURA_ADMIN_SECRET` — 32-character hex string (NEVER write this into HTML or any committed file)
+- `KALTURA_DATA_ENTRY_ID` — entry ID for the data entry (format: `1_xxxxxxxx`)
+
+If `.env` does not exist, ask the user for these values and create `.env`:
+```
+KALTURA_PARTNER_ID=1234567
+KALTURA_ADMIN_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+KALTURA_DATA_ENTRY_ID=1_xxxxxxxx
+```
 
 ### Step 2: Generate Kaltura Session (KS)
+
 ```bash
 curl -s -X POST "https://www.kaltura.com/api_v3/service/session/action/start" \
-  -d "partnerId=$KALTURA_PARTNER_ID" \
-  -d "secret=$KALTURA_ADMIN_SECRET" \
+  -d "partnerId=PARTNER_ID_HERE" \
+  -d "secret=ADMIN_SECRET_HERE" \
   -d "type=2" \
-  -d "privileges=disableentitlement"
+  -d "privileges=disableentitlement" \
+  -d "format=1"
 ```
-Extract the KS string from the response.
 
-### Step 3: Upload dist.html to data entry
+**Response format:** The response is a plain string (the KS token). It is NOT JSON.
+- Success: A long base64-like string (200+ characters) — this is the KS.
+- Failure: An XML/JSON error with `<code>` or `"code"` field.
+
+**Validation:** The KS must NOT start with `<` (XML error) or `{` (JSON error).
+If it does, the credentials are wrong — stop and report the error.
+
+### Step 3: Upload dist.html as data entry content
+
+**IMPORTANT:** Use `-F` (multipart form) with `<` file redirect syntax. The file content
+goes into `dataEntry[dataContent]`. Do NOT use `-d` for this — the HTML is too large.
+
 ```bash
 curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/update" \
-  -F "ks=$KS" \
-  -F "entryId=$KALTURA_DATA_ENTRY_ID" \
-  -F "dataEntry[dataContent]=<dist.html"
+  -F "ks=KS_TOKEN_HERE" \
+  -F "entryId=DATA_ENTRY_ID_HERE" \
+  -F "dataEntry[dataContent]=<./project-dir/dist.html" \
+  -F "format=1"
 ```
-Verify response contains `"objectType":"KalturaDataEntry"` and `"status":2`.
 
-### Step 4: Report success
-- Entry ID
-- Direct URL: `https://cdn.kaltura.com/p/$PID/sp/0/raw/entry_id/$ENTRY_ID`
-- Version deployed
+**Response validation (MUST check all three):**
+1. Response contains `"objectType":"KalturaDataEntry"` — confirms correct API endpoint
+2. Response contains `"status":2` — confirms entry is ready/active
+3. Response contains the entry ID you sent — confirms correct entry was updated
+
+**Common failures and fixes:**
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `INVALID_KS` | KS expired or malformed | Re-run Step 2 |
+| `ENTRY_ID_NOT_FOUND` | Wrong entry ID | Verify KALTURA_DATA_ENTRY_ID in .env |
+| `MAX_FILE_SIZE_EXCEEDED` | dist.html > 10MB | Check bundle output — should be < 500KB |
+| Empty response | Network timeout | Retry with `--max-time 30` |
+| `PROPERTY_VALIDATION_ERROR` on dataContent | File path wrong | Verify path to dist.html is correct, use relative `<./path` |
+
+### Step 4: Verify deployment is live
+
+Construct the direct-serve URL and test it:
+```
+https://cdnapi-ev.kaltura.com/p/PARTNER_ID_HERE/raw/entry_id/DATA_ENTRY_ID_HERE/direct_serve/1/forceproxy/true/dist.html
+```
+
+**Verification:** `curl -s -o /dev/null -w "%{http_code}" "URL_HERE"` should return `200`.
+
+### Step 5: Report to user
+
+Present:
+- Entry ID updated
+- Direct URL (the one from Step 4)
+- Version deployed (from project.json)
+- File size of dist.html
+- "Test it now? Open the URL above in a browser."
+
+### Deploy Constraints (NEVER violate)
+
+1. **NEVER** write `KALTURA_ADMIN_SECRET` into dist.html, project.json, or any file that gets committed/uploaded
+2. **NEVER** run `data/action/add` (create) without explicit user permission — always prefer `data/action/update` on an existing entry
+3. **NEVER** deploy without running bundle.sh first — unbundled HTML will fail at runtime
+4. **NEVER** deploy if validation (Phase 3) failed
+5. **ALWAYS** bump version before deploying (Phase 5 step 1)
+6. **ALWAYS** confirm with user before executing the upload curl command
+7. If the entry ID doesn't exist yet, use `data/action/add` with explicit user confirmation:
+   ```bash
+   curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/add" \
+     -F "ks=KS_TOKEN_HERE" \
+     -F "dataEntry[name]=Project Name Avatar" \
+     -F "dataEntry[dataContent]=<./project-dir/dist.html" \
+     -F "format=1"
+   ```
+   Extract the new entry ID from the response and update `.env`.
+
+### PDF Upload (if needed)
+
+If the user provides a local PDF that needs CDN hosting:
+
+```bash
+# Step A: Create upload token
+curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/add" \
+  -d "ks=KS_TOKEN_HERE" \
+  -d "format=1"
+# Extract tokenId from response
+
+# Step B: Upload the file to the token
+curl -s -X POST "https://www.kaltura.com/api_v3/service/uploadToken/action/upload" \
+  -F "ks=KS_TOKEN_HERE" \
+  -F "uploadTokenId=TOKEN_ID_HERE" \
+  -F "fileData=@./path/to/deck.pdf"
+
+# Step C: Create a document entry from the token
+curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/add" \
+  -F "ks=KS_TOKEN_HERE" \
+  -F "dataEntry[name]=Customer Deck PDF" \
+  -F "dataEntry[type]=10" \
+  -F "format=1"
+# Note: For proper media entries, use baseEntry/action/add + media/action/addContent
+# The simpler approach for raw file hosting:
+curl -s -X POST "https://www.kaltura.com/api_v3/service/baseEntry/action/add" \
+  -d "ks=KS_TOKEN_HERE" \
+  -d "entry[name]=Customer Deck PDF" \
+  -d "entry[type]=10" \
+  -d "format=1"
+# Then attach the upload token:
+curl -s -X POST "https://www.kaltura.com/api_v3/service/baseEntry/action/addContent" \
+  -d "ks=KS_TOKEN_HERE" \
+  -d "entryId=ENTRY_ID_FROM_PREVIOUS" \
+  -d "resource[objectType]=KalturaUploadedFileTokenResource" \
+  -d "resource[token]=TOKEN_ID_HERE" \
+  -d "format=1"
+```
+
+The resulting PDF URL:
+```
+https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/PDF_ENTRY_ID/direct_serve/1/forceproxy/true/deck.pdf
+```
+
+Put this URL in `project.json` → `deck.pdfUrl`.
 
 ---
 
-## STUDIO CONFIGURATION CHECKLIST (Generate for FDE)
+## STUDIO CONFIGURATION CHECKLIST (ALWAYS Present to User)
 
-After generating all project files, produce this checklist:
+**This checklist MUST be output to the user at the end of Phase 4 — it is their
+manual guide for configuring the eSelf Avatar Studio.** Format it as a markdown
+checklist with checkboxes. Fill in project-specific values (marked with `[...]`).
 
-### 1. Create or Clone the Flow
-- Create new flow in eSelf Avatar Studio (or clone existing)
-- Note the flow_id — must match project.json `avatar.flowId`
+Present it with this preamble:
+> "Here's your Avatar Studio configuration checklist. Complete these steps in the
+> eSelf Avatar Studio to connect your avatar to this presentation. Each checkbox
+> maps to a specific Studio field."
 
-### 2. Paste Generated Content
-- Knowledge Base → `studio/KNOWLEDGE_BASE_PROMPT.md`
-- Conversation Goal → `studio/AVATAR_GOALS.md`
-- Obey Rules → `studio/OBEY_RULES.md`
-- Reply Format → `studio/REPLY_FORMAT.md`
-- Summary Prompt → `studio/SUMMARY_PROMPT.md`
-- Screenshot Analysis Prompt → generated VLM prompt
+---
 
-### 3. Enable Required Features
-- Use Speech In NLU: ON
-- Experimental VLM: ON
-- Add Current Time to Prompt: ON
-- Enable Interruptions: ON
-- Enable Pause and Mute: ON
-- Intonation Turn Detection: ON (1500ms)
-- Is Finished LLM: ON (standard prompts)
-- Enforce LLM Response Format: ON (visual_content_response schema)
-- Generative UI: ON (with link items)
-- Dynamic Page Prompt: "Skip (use raw browser content)"
+```markdown
+# Avatar Studio Configuration Checklist
 
-### 4. Disable Conflicting Features
-- Loop Mode: OFF
-- Web Search: OFF
-- API Search: OFF
-- Long Term Memory: OFF (app.js handles this)
-- Dynamic Opening Phrase: OFF (KB handles opening)
-- Initial HTML: OFF (app.js is the page)
-- Allow Restart from Middle: OFF
-- Show Conversation Transcript: OFF
+**Project:** [project name from project.json]
+**Flow ID:** [avatar.flowId from project.json]
+**Client ID:** [avatar.clientId from project.json]
 
-### 5. Configure Models
-- Conversation: Vertex AI / Gemini 2.5 Flash / 17000 tokens
-- API: Vertex AI / Gemini 2.5 Flash / 8192 tokens
-- Screenshot: Vertex AI / Gemini 3.1 Flash Lite
-- IsFinished: Vertex AI / Gemini 2.5 Flash
+---
 
-### 6. Speech Recognition Key Terms
-- Add top 10 domain terms from deck analysis
+## 1. Create or Clone the Flow
 
-### 7. Generative UI Media Library
-- Configure Link items per project needs
+- [ ] Open eSelf Avatar Studio → Create New Flow (or clone existing)
+- [ ] Name: "[Company] [Use Case] Avatar"
+- [ ] Note the **flow_id** from the URL — it must match: `[flowId]`
+- [ ] Select avatar persona (or create custom)
 
-### 8. Goals
-- Collect email: ON (if contact enabled)
-- Collect phone: ON (for sales) / OFF (for others)
-- Collect user id: ON (always)
+---
 
-### 9. Exclude Global Rules
-- Exclude: "Abbreviation"
-- Exclude: "\n"
+## 2. Paste Generated Content
 
-### 10. Conversation Length
-- 10:00 standard (adjust per deck length)
+Copy-paste the FULL content of each file into the matching Studio field:
+
+| Studio Field | Source File | Size Guide |
+|-------------|-------------|------------|
+| Knowledge Base | `studio/KNOWLEDGE_BASE_PROMPT.md` | 300-500 lines |
+| Conversation Goal | `studio/AVATAR_GOALS.md` | 6 numbered goals |
+| Obey Rules | `studio/OBEY_RULES.md` | ~100 lines (locked) |
+| Reply Format | `studio/REPLY_FORMAT.md` | TTS table + rules |
+| Summary Prompt | `studio/SUMMARY_PROMPT.md` | Post-call template |
+| Screenshot Analysis Prompt | (see below) | 3-5 lines |
+
+**Screenshot Analysis Prompt** (paste into VLM prompt field):
+```
+[Generated screenshot prompt based on use case — see SCREENSHOT ANALYSIS PROMPT TEMPLATES]
+```
+
+---
+
+## 3. Features to ENABLE ✅
+
+- [ ] **Use Speech In NLU**: ON
+      _Why: Required for voice commands like "go to slide 5" to work_
+- [ ] **Experimental VLM (Visual Language Model)**: ON
+      _Why: Allows avatar to see and understand the current slide_
+- [ ] **Add Current Time to Prompt**: ON
+      _Why: DPP includes session time for context_
+- [ ] **Enable Interruptions**: ON
+      _Why: Users can interrupt the avatar mid-sentence_
+- [ ] **Enable Pause and Mute**: ON
+      _Why: PIP click-to-pause and mute button need this_
+- [ ] **Intonation Turn Detection**: ON → set to **1500ms**
+      _Why: Detects when user finished speaking based on intonation_
+- [ ] **Is Finished LLM**: ON (use standard/default prompts)
+      _Why: Better end-of-turn detection_
+- [ ] **Enforce LLM Response Format**: ON
+      _Schema:_ paste the `visual_content_response` JSON schema (see GENUI section)
+      _Why: Required for GenUI links to work_
+- [ ] **Generative UI**: ON
+      - Add Link items to the media library (investor relations page, PDF, etc.)
+      _Why: Avatar can show clickable overlays_
+- [ ] **Dynamic Page Prompt**: set to **"Skip — use raw browser content"**
+      _Why: app.js injects DPP directly; don't let Studio also inject page content_
+- [ ] **Send Screen Share to LLM**: ON (if screenCapture enabled in project.json)
+      _Why: Avatar sees the rendered slide for richer Q&A_
+
+---
+
+## 4. Features to DISABLE ❌
+
+- [ ] **Loop Mode**: OFF
+      _Why: Session has a defined start and end_
+- [ ] **Web Search**: OFF
+      _Why: Avatar must only use provided domain data, never hallucinate from web_
+- [ ] **API Search**: OFF
+      _Why: Same as above — no external data sources_
+- [ ] **Long Term Memory**: OFF
+      _Why: app.js handles session memory via localStorage — Studio memory conflicts_
+- [ ] **Dynamic Opening Phrase**: OFF
+      _Why: KB defines exact opening scripts for new/returning users_
+- [ ] **Initial HTML**: OFF
+      _Why: app.js IS the page — Studio should not inject HTML_
+- [ ] **Allow Restart from Middle**: OFF
+      _Why: Page reload handles fresh starts_
+- [ ] **Show Conversation Transcript**: OFF
+      _Why: app.js has its own debug transcript panel_
+- [ ] **Auto-collect email/phone** (Studio built-in): OFF
+      _Why: app.js handles contact collection with custom UI modal_
+
+---
+
+## 5. Configure Models
+
+| Role | Provider | Model | Max Tokens |
+|------|----------|-------|------------|
+| Conversation (main) | Vertex AI | Gemini 2.5 Flash | 17000 |
+| API (tool calls) | Vertex AI | Gemini 2.5 Flash | 8192 |
+| Screenshot Analysis | Vertex AI | Gemini 2.5 Flash Lite | 4096 |
+| Is Finished | Vertex AI | Gemini 2.5 Flash | 1024 |
+
+- [ ] Set Conversation model
+- [ ] Set API model
+- [ ] Set Screenshot model
+- [ ] Set Is Finished model
+
+---
+
+## 6. Speech Recognition → Key Terms
+
+Add these domain-specific terms so speech recognition handles them correctly:
+
+[List the top 10-15 domain terms identified during PDF analysis, e.g.:]
+- [ ] [Term 1] (e.g., "EBITDA")
+- [ ] [Term 2] (e.g., "Kaltura")
+- [ ] [Term 3] (e.g., "ARR")
+- [ ] [Term 4] (e.g., "PathFactory")
+- [ ] ... (add all domain terms)
+
+---
+
+## 7. Generative UI → Media Library
+
+Add Link items the avatar can display as overlay buttons:
+
+- [ ] Link 1: "[Link text]" → `[URL]`
+- [ ] Link 2: "[Link text]" → `[URL]`
+- [ ] (Add all relevant links — investor page, PDF download, product pages, etc.)
+
+---
+
+## 8. Goals (Collection)
+
+- [ ] Collect email: [ON if contact.enabled] — triggers contact modal
+- [ ] Collect phone: [ON for sales/earnings, OFF for training]
+- [ ] Collect user_id: ON (always — for session tracking)
+- [ ] Collect custom fields: OFF (unless project requires)
+
+---
+
+## 9. Exclude Global Rules
+
+Remove these from the global ruleset (they conflict with presentation behavior):
+
+- [ ] Exclude: "Abbreviation" (avatar needs to use acronyms naturally)
+- [ ] Exclude: "\\n" (response format handles line breaks)
+
+---
+
+## 10. Conversation Length
+
+- [ ] Set to: **10:00** (10 minutes)
+      _Adjust: shorter for demos (5:00), longer for training (15:00)_
+
+---
+
+## 11. Post-Configuration Verification
+
+After completing all steps above:
+
+- [ ] **Test navigation:** Say "go to slide 5" → avatar should say "Navigating to slide 5." and slide changes
+- [ ] **Test auto-advance:** Let avatar finish speaking → after delay, should say "Moving to the next slide."
+- [ ] **Test VLM:** Check debug log for "[ScreenCapture] Sent slide X" entries
+- [ ] **Test contact:** Ask a detailed question → avatar should eventually trigger email modal
+- [ ] **Test captions:** Press C → captions appear with correct TTS replacements
+- [ ] **Test GenUI:** Avatar should show link overlays when referencing external resources
+- [ ] **Verify no conflicts:** Avatar should NOT show Studio's built-in transcript or contact form
+
+---
+
+## Quick Reference: Flow URL Pattern
+
+```
+https://studio.eself.ai/flows/[flowId]/edit
+```
+
+## Quick Reference: Test URL Pattern
+
+```
+https://cdnapi-ev.kaltura.com/p/[partnerId]/raw/entry_id/[dataEntryId]/direct_serve/1/forceproxy/true/dist.html
+```
+```
+
+---
+
+**IMPORTANT:** This checklist is ALWAYS generated with project-specific values filled in.
+Never output a generic version — replace every `[...]` placeholder with actual values from
+the project. If a value depends on Studio (like link IDs), leave the checkbox unchecked
+and note "assign after creating in Studio".
 
 ---
 

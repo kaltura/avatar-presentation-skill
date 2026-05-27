@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,124 +7,265 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#0f0f1a">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- PDF.js for slide rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <!-- Socket.IO for avatar connection -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
-    <!-- eSelf Avatar SDK -->
-    <script src="https://cdn.eself.ai/sdk/latest/eself-sdk.min.js"></script>
+    <!-- Kaltura Avatar SDK -->
+    <script src="https://cdn.jsdelivr.net/gh/kaltura/conversational-avatar-embed-sdk@latest/sdk-socket/dist/kaltura-avatar-sdk.js"></script>
 
     <!-- Inline styles injected by bundle.sh -->
 </head>
 <body>
     <a href="#presentation-container" class="skip-link">Skip to presentation</a>
 
-    <!-- Welcome Screen Overlay -->
-    <div id="welcome-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Welcome">
-        <div class="welcome-content">
-            <div class="welcome-logo" id="welcome-logo"></div>
-            <h1 id="welcome-title">{{TITLE}}</h1>
-            <p id="welcome-subtitle"></p>
-            <div id="welcome-steps" class="steps-grid"></div>
-            <button id="welcome-continue" class="btn-primary">Continue</button>
-            <p class="mic-note" id="mic-note"></p>
-        </div>
-    </div>
-
-    <!-- Disclaimer Overlay -->
-    <div id="disclaimer-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Disclaimer">
-        <div class="disclaimer-content">
-            <h2 id="disclaimer-heading"></h2>
-            <div id="disclaimer-sections"></div>
-            <button id="disclaimer-accept" class="btn-primary"></button>
-            <nav id="disclaimer-footer" class="footer-links"></nav>
-        </div>
-    </div>
-
-    <!-- Access Gate (optional) -->
-    <div id="access-gate" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Access verification">
-        <div class="gate-content">
-            <p id="gate-prompt"></p>
-            <input type="text" id="gate-input" autocomplete="off" aria-label="Access code">
-            <button id="gate-submit" class="btn-primary">Enter</button>
-            <p id="gate-error" class="error hidden"></p>
-        </div>
-    </div>
-
-    <!-- Main Presentation Container -->
-    <div id="presentation-container" class="hidden">
+    <div id="app">
         <!-- Header -->
-        <header id="app-header">
-            <div class="header-left">
-                <div id="header-logo"></div>
-                <div class="header-divider"></div>
-                <a id="pdf-link" class="pdf-badge" target="_blank" rel="noopener">
-                    <span class="badge">PDF</span>
-                    <span id="pdf-link-text"></span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3.5 3a.5.5 0 0 0 0 1h3.793L2.146 9.146a.5.5 0 1 0 .708.708L8 4.707V8.5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5h-5z"/></svg>
+        <header class="app-header">
+            <div class="header-brand">
+                <div id="header-logo" class="header-logo"></div>
+                <span class="header-divider"></span>
+                <a id="btn-download-pdf" class="header-pdf-link" target="_blank" rel="noopener"
+                   aria-label="Open the deck PDF in a new tab">
+                    <span class="header-pdf-badge" aria-hidden="true">PDF</span>
+                    <span class="header-title">{{TITLE}}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
                 </a>
             </div>
-            <div class="header-right">
-                <button id="clear-memory" class="icon-btn hidden" aria-label="Reset session" title="Reset session"></button>
-                <button id="debug-btn" class="icon-btn hidden" aria-label="Debug panel" title="Debug"></button>
+            <div class="header-actions">
+                <button id="btn-clear-memory" class="btn btn-ghost hidden"
+                        aria-label="Reset session" title="Reset session">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    Clear Memory
+                </button>
+                <button id="btn-transcript" class="btn btn-ghost" aria-label="Debug log" title="Debug log">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <polyline points="4 17 10 11 4 5"/>
+                        <line x1="12" y1="19" x2="20" y2="19"/>
+                    </svg>
+                    Debug
+                </button>
             </div>
         </header>
 
-        <!-- Slide Area -->
-        <main id="slide-area" role="main">
-            <canvas id="slide-canvas" aria-label="Presentation slide"></canvas>
-            <div id="slide-progress" role="progressbar" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
-                <span id="slide-label"></span>
+        <!-- Start overlay (welcome + disclaimer flow) -->
+        <div id="start-overlay" class="start-overlay">
+            <div class="start-content">
+                <div id="start-logo" class="start-logo"></div>
+                <h1 id="start-title" class="start-title">{{TITLE}}</h1>
+                <p id="start-subtitle" class="start-subtitle"></p>
+
+                <!-- Step 1: How It Works -->
+                <div id="welcome-step" aria-label="How it works">
+                    <ol id="welcome-steps" class="start-steps"></ol>
+                    <button id="btn-continue" class="btn btn-start" autofocus
+                            title="Continue to legal disclaimer">
+                        Continue
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <p class="start-note start-mic-note">Microphone optional &mdash; you can also type.</p>
+                </div>
+
+                <!-- Step 2: Legal Disclaimer -->
+                <div id="disclaimer-step" class="hidden" role="region" aria-label="Legal disclaimer">
+                    <div id="disclaimer-content" class="disclaimer-scroll" tabindex="0"></div>
+                    <button id="btn-start" class="btn btn-start">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+                        <span id="btn-start-text">I Acknowledge &mdash; Start Presentation</span>
+                    </button>
+                    <nav id="disclaimer-links" class="start-links" aria-label="Legal links"></nav>
+                </div>
+
+                <p id="version-tag" class="start-note" style="margin-top:8px;font-size:0.6875rem;opacity:0.4;"></p>
             </div>
-        </main>
-
-        <!-- Navigation Sidebar -->
-        <nav id="slide-nav" aria-label="Slide navigation">
-            <ul id="nav-list"></ul>
-        </nav>
-
-        <!-- Avatar PIP -->
-        <div id="avatar-container" class="avatar-pip" role="complementary" aria-label="Avatar video">
-            <div id="avatar-video"></div>
-            <p id="avatar-loading" class="loading-text"></p>
         </div>
 
-        <!-- Captions -->
-        <div id="captions-container" aria-live="polite" aria-atomic="true" class="captions hidden"></div>
+        <!-- Access gate (optional, shown if CONFIG.accessGate.enabled) -->
+        <div id="access-gate" class="access-gate hidden" role="dialog" aria-modal="true" aria-label="Access verification">
+            <div class="gate-content">
+                <p id="gate-prompt">Enter access code to continue</p>
+                <input type="text" id="gate-input" autocomplete="off" aria-label="Access code">
+                <button id="gate-submit" class="btn btn-start">Enter</button>
+                <p id="gate-error" class="gate-error hidden">Invalid code. Please try again.</p>
+            </div>
+        </div>
 
-        <!-- Controls Bar -->
-        <footer id="controls-bar">
-            <div class="controls-left">
-                <button id="prev-slide" class="nav-btn" aria-label="Previous slide">&larr;</button>
-                <button id="next-slide" class="nav-btn" aria-label="Next slide">&rarr;</button>
-                <button id="autoplay-toggle" class="icon-btn" aria-label="Toggle autoplay"></button>
-            </div>
-            <div class="controls-center">
-                <input type="text" id="chat-input" autocomplete="off" aria-label="Chat input">
-                <button id="send-btn" class="btn-send" aria-label="Send message"></button>
-            </div>
-            <div class="controls-right">
-                <button id="cc-toggle" class="icon-btn" aria-label="Toggle closed captions"></button>
-                <button id="mute-toggle" class="icon-btn" aria-label="Mute microphone"></button>
-            </div>
-        </footer>
+        <!-- Main presentation area -->
+        <main class="presentation-wrapper hidden" id="presentation-wrapper" role="main" aria-label="Presentation">
+            <div id="presentation-container" class="presentation-container" role="region" aria-label="Slide viewer">
+                <div id="slide-wrapper" class="slide-wrapper">
+                    <canvas id="slide-canvas" aria-label="Presentation slide" role="img"></canvas>
+                    <div id="annotation-layer" class="annotation-layer"></div>
+                </div>
 
-        <!-- Session Warning -->
-        <div id="session-warning" class="warning-banner hidden" role="alert"></div>
+                <!-- Avatar PIP overlay -->
+                <div id="avatar-pip" class="avatar-pip" role="button" tabindex="0"
+                     aria-label="Avatar video. Click to pause or resume. Drag to reposition."
+                     title="Click to pause/resume | Drag to reposition">
+                    <div id="avatar-loading" class="avatar-loading">
+                        <div class="avatar-loading-spinner"></div>
+                        <span>Connecting avatar...</span>
+                    </div>
+                    <div id="avatar-pause-overlay" class="avatar-pause-overlay hidden">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="white" opacity="0.9">
+                            <rect x="6" y="4" width="4" height="16" rx="1"/>
+                            <rect x="14" y="4" width="4" height="16" rx="1"/>
+                        </svg>
+                    </div>
+                    <div class="avatar-pip-grab-dots" aria-hidden="true">
+                        <span></span><span></span><span></span>
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+
+                <!-- Closed captions (SDK renders inside this) -->
+                <div id="caption-container" class="caption-container" role="region"
+                     aria-label="Closed captions" aria-live="polite" aria-atomic="true"></div>
+
+                <!-- Video overlay container (GenUI) -->
+                <div id="video-overlay-container" class="video-overlay hidden"></div>
+
+                <!-- Slide number badge -->
+                <div class="slide-badge" aria-live="polite">
+                    <span id="slide-counter" aria-live="polite">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Controls bar -->
+            <div class="controls-bar">
+                <div class="controls-nav">
+                    <button id="btn-prev" class="btn btn-nav" aria-label="Previous slide" title="Previous slide" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <div class="slide-progress">
+                        <div id="progress-bar" class="progress-bar" role="progressbar"
+                             aria-valuenow="0" aria-valuemin="1" aria-valuemax="1" aria-label="Slide progress">
+                            <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+                        </div>
+                        <span id="slide-label" class="slide-label" aria-live="polite" role="button" tabindex="0"
+                              title="Click to jump to a specific slide">Loading...</span>
+                        <input id="slide-jump-input" class="slide-jump-input hidden" type="number" min="1"
+                               aria-label="Jump to slide number">
+                    </div>
+                    <div class="btn-nav-wrap">
+                        <button id="btn-next" class="btn btn-nav" aria-label="Next slide" title="Next slide">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <svg id="autoplay-ring" class="autoplay-ring" viewBox="0 0 54 54">
+                            <circle cx="27" cy="27" r="25"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="controls-actions">
+                    <div id="btn-autoplay" class="autoplay-toggle active" role="switch" aria-checked="true"
+                         aria-label="Auto-advance slides" tabindex="0"
+                         title="Auto-advance slides: on">
+                        <div class="autoplay-toggle-track">
+                            <div class="autoplay-toggle-thumb">
+                                <svg id="icon-autoplay-on" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6,3 20,12 6,21"/></svg>
+                                <svg id="icon-autoplay-off" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="hidden" aria-hidden="true"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btn-cc" class="btn btn-icon btn-cc" aria-label="Toggle closed captions"
+                            aria-pressed="false" title="Toggle closed captions (C)" role="switch">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                            <text x="12" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none" text-anchor="middle" font-family="system-ui, sans-serif">CC</text>
+                        </svg>
+                    </button>
+                    <button id="btn-mute" class="btn btn-icon" aria-label="Mute microphone"
+                            aria-pressed="false" title="Mute microphone" role="switch">
+                        <svg id="icon-mic-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                        <svg id="icon-mic-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden" aria-hidden="true">
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                            <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+                            <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat input bar -->
+            <form id="chat-form" class="chat-bar" autocomplete="off" role="search" aria-label="Ask a question">
+                <input type="text" id="chat-input" class="chat-input"
+                       placeholder="Type a question here and hit Enter/Send, or just speak naturally"
+                       aria-label="Type a question for the avatar">
+                <button type="submit" id="btn-send" class="btn btn-send" aria-label="Send message">
+                    <span class="btn-send-label">Send</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </form>
+        </main>
+
+        <!-- Debug log panel -->
+        <aside id="transcript-panel" class="transcript-panel hidden" aria-label="Debug log">
+            <div class="transcript-header">
+                <h2>Debug Log</h2>
+                <div class="transcript-actions">
+                    <button id="btn-download-transcript" class="btn btn-ghost btn-sm" aria-label="Download log">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button id="btn-close-transcript" class="btn btn-ghost btn-sm" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="transcript-body" class="transcript-body"></div>
+        </aside>
+
+        <!-- Contact collection modal -->
+        <div id="contact-modal" class="contact-modal hidden" role="dialog" aria-labelledby="contact-modal-title" aria-modal="true">
+            <div class="contact-modal-backdrop"></div>
+            <div class="contact-modal-content">
+                <button id="btn-close-contact" class="contact-modal-close" aria-label="Close contact form">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <h3 class="contact-modal-title" id="contact-modal-title"></h3>
+                <p class="contact-modal-subtitle" id="contact-modal-subtitle"></p>
+                <form id="contact-form" class="contact-form" autocomplete="off">
+                    <div id="contact-email-group" class="contact-field-group">
+                        <label for="contact-email" class="contact-label">Email</label>
+                        <input type="email" id="contact-email" class="contact-input" placeholder="you@company.com" autocomplete="email">
+                    </div>
+                    <div id="contact-phone-group" class="contact-field-group hidden">
+                        <label for="contact-phone" class="contact-label">Phone</label>
+                        <input type="tel" id="contact-phone" class="contact-input" placeholder="+1 (555) 000-0000" autocomplete="tel">
+                    </div>
+                    <button type="submit" id="btn-contact-submit" class="btn btn-primary contact-submit"></button>
+                    <button type="button" id="btn-contact-skip" class="btn btn-ghost contact-skip"></button>
+                    <p id="contact-privacy-note" class="contact-privacy-note"></p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Status toast -->
+        <div id="status-toast" class="status-toast hidden" role="status" aria-live="polite">
+            <span id="status-message"></span>
+        </div>
     </div>
 
-    <!-- GenUI Overlay (contact forms, links) -->
-    <div id="genui-overlay" class="genui-container hidden" role="dialog" aria-modal="true"></div>
-
-    <!-- Debug Panel -->
-    <div id="debug-panel" class="debug hidden" role="complementary" aria-label="Debug information">
-        <pre id="debug-content"></pre>
-    </div>
-
-    <div class="version-tag">v{{VERSION}}</div>
-
-    <!-- App script and data injected by bundle.sh below -->
+    <!-- Data and app scripts injected by bundle.sh below -->
 </body>
 </html>
