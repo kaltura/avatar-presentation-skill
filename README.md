@@ -1,6 +1,6 @@
 # Avatar Deck — Conversational Presentation Builder
 
-A Claude Code skill that turns any PDF deck into a fully interactive, AI-narrated presentation powered by a [Kaltura Conversational Avatar](https://corp.kaltura.com/products/video-experiences/interactive-avatar/).
+A Claude Code skill that turns any PDF deck into a fully interactive, AI-narrated presentation powered by a [Kaltura Conversational Avatar](https://corp.kaltura.com/agentic-avatars/).
 
 Give it a PDF and an avatar URL — it produces a single deployable `dist.html` with voice navigation, real-time Q&A, slide-aware screen capture, and contact collection. Share via a stable short link that always serves the latest version.
 
