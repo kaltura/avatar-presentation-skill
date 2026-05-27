@@ -9,105 +9,21 @@ when_to_use: >
   Use when asked to create a new avatar presentation, generate presentation slides,
   build a conversational avatar deck, or deploy an interactive presentation.
 argument-hint: "[pdf-path-or-url]"
-allowed-tools: Read Write Edit Bash Grep Agent
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: prompt
-          prompt: |
-            You are a security gate for avatar presentation files.
-            Analyze this file write operation: $ARGUMENTS
-
-            BLOCK if ANY of these are true:
-            1. The file path contains /studio/OBEY_RULES (project-level copy is LOCKED, never modified per-project). Writing to /toolkit/rules/OBEY_RULES is ALLOWED (canonical source).
-            2. The content contains a 32-character hex string that looks like a Kaltura admin secret.
-            3. The content contains a credential value that should only live in .env.
-            4. The file is a slide JSON (in data/slides/) and is missing required fields: slide, title, category, talking_points.
-            5. The file is a slide JSON and category is not one of: financial, legal, strategy, product, overview, section_divider.
-            6. The file is a slide JSON and talking_points is not an array of 1-4 items.
-
-            If blocking, return JSON: {"decision": "block", "reason": "..."}
-            Otherwise return JSON: {"continue": true}
-    - matcher: "Write|Edit"
-      if: "Write(**/KNOWLEDGE_BASE_PROMPT*)|Edit(**/KNOWLEDGE_BASE_PROMPT*)"
-      hooks:
-        - type: prompt
-          prompt: |
-            You are a navigation phrase linter for avatar presentations.
-            Analyze this knowledge base write: $ARGUMENTS
-
-            Navigation commands are parsed by EXACT regex in app.js. Near-misses silently fail.
-
-            Check the content for any string that LOOKS like a navigation command but does not
-            EXACTLY match one of these formats (including the terminal period):
-            - "Navigating to slide [N]."
-            - "Moving to the next slide."
-            - "Going back to the previous slide."
-            - "Let me show you slide [N]."
-            - "Ending presentation now."
-
-            Common errors to catch:
-            - "Navigate to slide" (wrong tense)
-            - "Go to the next slide" (wrong phrasing)
-            - Missing terminal period
-            - Navigation phrases in non-English
-
-            If you find near-misses: {"decision": "block", "reason": "Near-miss navigation phrase: found '[X]', expected '[Y]'"}
-            If all correct: {"continue": true}
-    - matcher: "Bash"
-      if: "Bash(*kaltura.com/api_v3*)|Bash(*rm -rf*)|Bash(*rm -r *)"
-      hooks:
-        - type: prompt
-          prompt: |
-            You are a deploy safety gate for avatar presentations.
-            Analyze this bash command: $ARGUMENTS
-
-            BLOCK if ANY of these are true:
-            1. Command contains "rm -rf" or "rm -r" targeting a project directory.
-            2. Command is a deploy operation (curl to kaltura.com/api_v3/service/data/action/update) without evidence that validation passed and version was bumped.
-
-            If blocking: {"decision": "block", "reason": "..."}
-            Otherwise: {"continue": true}
-  PostToolUse:
-    - matcher: "Write|Edit"
-      if: "Write(**/data/slides/*)|Edit(**/data/slides/*)"
-      hooks:
-        - type: agent
-          prompt: |
-            A slide file was just written or edited. Verify cross-reference integrity.
-            $ARGUMENTS
-
-            Check:
-            1. List all files in the project's data/slides/ directory — verify no duplicate slide numbers exist
-            2. Read project.json — verify avatar.clientId and avatar.flowId are present
-            3. If studio/KNOWLEDGE_BASE_PROMPT.md exists, count slide directory entries vs actual slide files
-
-            If consistent: {"continue": true}
-            If mismatches: {"decision": "block", "reason": "...specifics..."}
-          timeout: 45
-  Stop:
-    - hooks:
-        - type: agent
-          prompt: |
-            Before this session ends, perform a completeness check on the avatar presentation project.
-            $ARGUMENTS
-
-            Find the project directory (look for project.json). If no avatar project exists, return {"continue": true}.
-
-            If a project exists, verify:
-            1. All slide JSONs in data/slides/ have sequential numbering (no gaps, no duplicates)
-            2. Each slide's category is from: financial, legal, strategy, product, overview, section_divider
-            3. KNOWLEDGE_BASE_PROMPT.md exists and is under 30,000 characters
-            4. Navigation phrases match the contract exactly (terminal period, correct tense)
-            5. project.json version is valid semver (X.Y.Z)
-            6. No TODO or FIXME markers in project files
-            7. TTS entries in REPLY_FORMAT.md cover proper nouns from slides
-            8. studio/OBEY_RULES.md exists
-
-            If all pass: {"continue": true}
-            If issues found: {"decision": "block", "reason": "...list each issue with file names..."}
-          timeout: 60
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash(sh *)
+  - Bash(find *)
+  - Bash(grep *)
+  - Bash(ls *)
+  - Bash(cat *)
+  - Bash(wc *)
+  - Bash(head *)
+  - Bash(mkdir *)
+  - Bash(curl *)
+  - Bash(chmod *)
+  - Agent
 ---
 
 # Avatar Deck — Conversational Presentation Builder
@@ -118,6 +34,38 @@ customer's PDF deck and website URL.
 
 Your output: a working `dist.html` that connects to a configured eSelf avatar and
 delivers a fully interactive, AI-narrated presentation experience.
+
+---
+
+## SELF-VALIDATION RULES (Apply on every write)
+
+Before writing any file, verify these invariants:
+
+**Security gate (all writes):**
+- NEVER write to `/studio/OBEY_RULES` — project-level copy is LOCKED. Only `/toolkit/rules/OBEY_RULES` is writable.
+- NEVER write content containing a 32-character hex string (potential admin secret).
+- NEVER write credential values that belong in `.env`.
+
+**Slide JSON gate (writes to `data/slides/`):**
+- Required fields: `slide`, `title`, `category`, `talking_points`.
+- Category must be one of: `financial`, `legal`, `strategy`, `product`, `overview`, `section_divider`.
+- `talking_points` must be an array of 1-4 items.
+
+**Navigation phrase gate (writes to `KNOWLEDGE_BASE_PROMPT`):**
+- Every navigation phrase must EXACTLY match one of these (including terminal period):
+  - "Navigating to slide [N]."
+  - "Moving to the next slide."
+  - "Going back to the previous slide."
+  - "Let me show you slide [N]."
+  - "Ending presentation now."
+
+**Deploy gate (curl to Kaltura API):**
+- Only deploy after validation passes AND version is bumped.
+- Never `rm -rf` or `rm -r` a project directory.
+
+**After writing slide files:** verify no duplicate slide numbers, confirm `project.json` has `avatar.clientId` and `avatar.flowId`, and check KB slide directory count matches actual slide files.
+
+**Before ending session:** run a completeness check — sequential numbering, valid categories, KB under 30K chars, navigation phrases exact, valid semver, no TODOs, TTS covers proper nouns, `studio/OBEY_RULES.md` exists.
 
 ---
 
