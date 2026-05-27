@@ -604,9 +604,11 @@ serves fresh content instead of cached old version.
 **If `KALTURA_SHORT_LINK_ID` exists in .env** (normal case — every deploy after first):
 
 ```bash
-curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/update" \
-  -d "ks=KS_TOKEN" -d "id=SHORT_LINK_ID" \
-  -d "shortLink[fullUrl]=https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html?v=VERSION" \
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortlink_shortlink/action/update" \
+  -d "ks=KS_TOKEN" \
+  -d "id=SHORT_LINK_ID" \
+  -d "shortLink[objectType]=KalturaShortLink" \
+  -d "shortLink[fullUrl]=https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DOCUMENT_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html?v=VERSION" \
   -d "format=1"
 ```
 
@@ -614,19 +616,23 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/update"
 
 ```bash
 # Look up by systemName first (in case it was created manually)
-curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/list" \
-  -d "ks=KS_TOKEN" -d "filter[systemNameEqual]=SHORT_LINK_SYSTEM_NAME" -d "format=1"
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortlink_shortlink/action/list" \
+  -d "ks=KS_TOKEN" \
+  -d "filter[systemNameEqual]=SHORT_LINK_SYSTEM_NAME" \
+  -d "filter[statusEqual]=2" \
+  -d "format=1"
 ```
 
-If `totalCount > 0`: extract `id`, save to .env as `KALTURA_SHORT_LINK_ID`, then update as above.
+If `totalCount > 0`: extract `id` from `objects[0].id`, save to .env as `KALTURA_SHORT_LINK_ID`, then update as above.
 
 If `totalCount == 0`: create new:
 
 ```bash
-curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/add" \
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortlink_shortlink/action/add" \
   -d "ks=KS_TOKEN" \
+  -d "shortLink[objectType]=KalturaShortLink" \
   -d "shortLink[systemName]=SHORT_LINK_SYSTEM_NAME" \
-  -d "shortLink[fullUrl]=https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html?v=VERSION" \
+  -d "shortLink[fullUrl]=https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DOCUMENT_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html?v=VERSION" \
   -d "shortLink[status]=2" \
   -d "format=1"
 ```
