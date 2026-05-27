@@ -1,6 +1,6 @@
 {
-  "name": "avatar-deck",
-  "id": "avatar-deck",
+  "name": "avatar-presentation-skill",
+  "id": "avatar-presentation-skill",
   "owner": { "name": "Kaltura" },
   "metadata": {
     "description": "AI-narrated presentation builder for Kaltura's conversational avatar platform",

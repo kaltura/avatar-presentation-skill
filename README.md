@@ -6,14 +6,14 @@ A Claude Code plugin that generates complete, compliant, deployable avatar prese
 
 ## Install
 
-```bash
-claude plugin marketplace add kaltura/agentcore-conversational-presentor-avatar
-claude plugin install avatar-deck
+```
+/plugin marketplace add zoharbabin/avatar-presentation-skill
+/plugin install avatar-deck@avatar-presentation-skill
 ```
 
 ## Usage
 
-```bash
+```
 /avatar-deck path/to/deck.pdf
 ```
 
