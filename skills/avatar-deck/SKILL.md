@@ -185,9 +185,10 @@ Generate the Studio Configuration Checklist (see section below).
 1. Bump version: sh toolkit/scripts/version-bump.sh ./project-dir/ patch
 2. Validate: run Phase 3 checks
 3. Bundle: sh toolkit/scripts/bundle.sh ./project-dir/ ./toolkit/engine/
+   (bundle.sh validates: slide numbering contiguous, CONFIG/SLIDE_DATA in output, CDN refs present)
 4. Confirm with FDE: "Ready to deploy vX.Y.Z to [entry]. Proceed?"
-5. Deploy via curl (see Deploy Procedure below)
-6. Report: "Live at [URL] — test it now?"
+5. Deploy via curl: upload dist.html + create/update short link (see Deploy Procedure)
+6. Report: direct URL, short link URL, version, file size
 ```
 
 ---
@@ -546,23 +547,57 @@ curl -s -X POST "https://www.kaltura.com/api_v3/service/data/action/update" \
 
 Validate response: contains `"objectType":"KalturaDataEntry"`, `"status":2`, and correct entry ID.
 
-### Step 4: Verify
+### Step 4: Create/Update Short Link
 
+The short link gives a clean vanity URL: `https://www.kaltura.com/tiny/XXXXX`
+
+`project.json` → `deploy.shortLinkSystemName` is the lookup key.
+
+```bash
+# Find existing short link by systemName
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/list" \
+  -d "ks=KS_TOKEN" -d "filter[systemNameEqual]=SHORT_LINK_SYSTEM_NAME" -d "format=1"
 ```
-https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html
+
+If `totalCount > 0`: update existing link's `fullUrl` to point to the direct-serve URL with cache-buster:
+
+```bash
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/update" \
+  -d "ks=KS_TOKEN" -d "id=SHORT_LINK_ID" \
+  -d "shortLink[fullUrl]=https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html?v=VERSION" \
+  -d "format=1"
 ```
+
+If `totalCount == 0`: create new short link:
+
+```bash
+curl -s -X POST "https://www.kaltura.com/api_v3/service/shortLink/action/add" \
+  -d "ks=KS_TOKEN" \
+  -d "shortLink[systemName]=SHORT_LINK_SYSTEM_NAME" \
+  -d "shortLink[fullUrl]=https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html?v=VERSION" \
+  -d "shortLink[status]=2" \
+  -d "format=1"
+```
+
+Extract `id` from response → live URL is `https://www.kaltura.com/tiny/{id}`
+
+### Step 5: Verify
+
+Direct-serve URL: `https://cdnapi-ev.kaltura.com/p/PARTNER_ID/raw/entry_id/DATA_ENTRY_ID/direct_serve/1/forceproxy/true/dist.html`
+Short link URL: `https://www.kaltura.com/tiny/{id}`
 
 `curl -s -o /dev/null -w "%{http_code}" "URL"` → expect 200.
 
-### Step 5: Report
+### Step 6: Report
 
-Entry ID, direct URL, version, file size, "Test it now?"
+Entry ID, direct URL, short link URL, version, file size, "Test it now?"
 
 ### Constraints
 - NEVER write admin secret into committed/uploaded files
 - NEVER `data/action/add` without user permission — prefer `update`
 - NEVER deploy without bundle.sh + validation pass + version bump
 - ALWAYS confirm with user before uploading
+- ALWAYS update short link with `?v=VERSION` cache-buster so CDN serves the new content
 - New entry: use `data/action/add` with `-F "dataEntry[name]=..."`, extract ID, update .env
 
 ### PDF Upload (if local PDF needs CDN hosting)
