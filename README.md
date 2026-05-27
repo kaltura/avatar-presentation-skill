@@ -75,7 +75,7 @@ your-project/
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI, desktop app, or IDE extension)
 - A [Kaltura](https://corp.kaltura.com/) account with Avatar Studio access
 - A PDF deck to convert
-- Partner ID + Admin Secret (for deployment)
+- Partner ID + Admin Secret (for deployment) — see [`.env.example`](.env.example)
 
 ## Architecture
 
