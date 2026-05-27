@@ -1,6 +1,7 @@
 ---
 name: avatar-deck
 description: Generate a complete, compliant, deployable avatar presentation project from a PDF deck and website URL. Use when asked to create a new avatar presentation, generate presentation slides, build a conversational avatar deck, or deploy an interactive presentation.
+argument-hint: "[pdf-path] [avatar-url]"
 allowed-tools:
   - Read
   - Write
