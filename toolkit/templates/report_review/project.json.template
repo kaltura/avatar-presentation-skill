@@ -66,6 +66,8 @@
     "sessionTimeWarning": true,
     "welcomeScreen": true,
     "sessionMemory": true,
+    "toc": true,
+    "chatLog": false,
     "debug": false
   },
 

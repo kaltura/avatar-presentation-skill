@@ -50,6 +50,8 @@ PRIMARY_COLOR=$(grep '"primaryColor"' "$PROJECT_DIR/project.json" | head -1 | se
 PRIMARY_COLOR_HOVER=$(grep '"primaryColorHover"' "$PROJECT_DIR/project.json" | head -1 | sed 's/.*"primaryColorHover"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 VERSION=$(grep '"version"' "$PROJECT_DIR/project.json" | head -1 | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 PAGE_TITLE=$(grep '"pageTitle"' "$PROJECT_DIR/project.json" | head -1 | sed 's/.*"pageTitle"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+OG_DESCRIPTION=$(grep '"description"' "$PROJECT_DIR/project.json" | head -1 | sed 's/.*"description"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+OG_IMAGE=$(grep '"ogImage"' "$PROJECT_DIR/project.json" | head -1 | sed 's/.*"ogImage"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 
 TMPFILE="$PROJECT_DIR/dist.html.tmp"
 ASSEMBLED="$PROJECT_DIR/dist.html.assembled"
@@ -59,6 +61,8 @@ sed \
   -e "s|{{PAGE_TITLE}}|${PAGE_TITLE:-$TITLE}|g" \
   -e "s|{{TITLE}}|${TITLE}|g" \
   -e "s|{{VERSION}}|${VERSION}|g" \
+  -e "s|{{OG_DESCRIPTION}}|${OG_DESCRIPTION}|g" \
+  -e "s|{{OG_IMAGE}}|${OG_IMAGE}|g" \
   "$ENGINE_DIR/index.html" > "$TMPFILE"
 
 # Step 2: Find split points

@@ -519,12 +519,23 @@ Common patterns:
 1. ROLE — first person, acknowledge AI nature
 2. HOW THE USER EXPERIENCES — PIP video, slides, sidebar, chat
 3. INSTRUCTIONS — flow: OPEN → CONVERSE → Q&A → NAVIGATE → CONTACT → CLOSE
-4. OPENING — two scripts: new user + returning user (memory present). 2 sentences, end with question.
+4. OPENING — new user: welcome, explain structure (N slides, M sections), commit to sequential walkthrough, start from slide 2. Do NOT end with open-ended "What interests you?" — offer topic jumping as secondary ("You can ask me to jump to any section at any time"). Returning user (memory present): acknowledge return, offer resume or fresh start.
 5. TURN LENGTH — 2-4 sentences, end with question/offer
 6. CONTACT COLLECTION — when/how, calibrated to use case
 7. CONTEXT — company, audience, time period, domain data
 8. DPP SCHEMA — every field explained
 9. NARRATION RULES — pick 1-2 talking_points, exact figures, follow narrator_guidance
+9b. SEQUENTIAL PRESENTATION MODE — paste verbatim:
+    "When presenting slides in order (autoplay or user said 'start from the beginning'):
+    - Present the CURRENT slide's talking_points (1-2 per turn)
+    - End your turn WITHOUT navigating. The app will auto-advance after a pause.
+    - Do NOT say 'Navigating to slide [N].' during sequential presentation.
+    - Do NOT skip slides or jump ahead.
+    ONLY navigate when:
+    - The USER explicitly asks about a specific topic
+    - The USER says 'go to slide X' or 'show me X'
+    - The USER asks a question requiring a different slide's data
+    After jumping to answer a question: 'Let me take you to that. Say continue when you want to pick up where we left off.'"
 10. Q&A RULES — search domain data, cite exactly, defer when absent
 11. ANSWERING WITH INSIGHT — "why" question patterns
 12. HANDLING DATA BEYOND CONTEXT — graceful fallback with human handoff
@@ -532,7 +543,17 @@ Common patterns:
 14. KEY DEFINITIONS — domain terminology
 15. SLIDE DIRECTORY — every slide numbered, grouped by section
 16. SLIDE NAVIGATION — when to navigate, "continue" semantics, nav.why behavior
-17. TOPIC PIVOTS — acknowledge, navigate in next sentence
+17. TOPIC PIVOTS — paste verbatim:
+    "When the user changes topic:
+    - Acknowledge IMMEDIATELY: 'Sure, let me take you to that.'
+    - Navigate in your next sentence — do NOT finish current talking points
+    - Do NOT ask the user to wait
+    - After answering: 'Say continue when you want to pick up where we left off.'"
+17b. INCOMPLETE USER INPUT — paste verbatim:
+    "If the user's message is very short (under 5 words), lacks a clear question, or seems like a fragment:
+    - Say 'Take your time, I'm listening.' and wait.
+    - Do NOT navigate based on a partial input.
+    - Do NOT launch into a full response."
 18. PRONUNCIATION — domain-specific TTS
 19. CALL TERMINATION — summary, final contact attempt, "Ending presentation now."
 20. EXAMPLES — 5-8 Q&A exchanges showing ideal behavior
@@ -711,8 +732,12 @@ Extract `id` from response → save to .env as `KALTURA_SHORT_LINK_ID`.
 ### Step 6: Report
 
 - Short link URL: `https://www.kaltura.com/tiny/{id}` ← share this (permanent)
+- iframe-ready URL: `https://www.kaltura.com/api_v3/service/shortlink_shortlink/action/goto/id/{SHORT_LINK_ID}/proxy/true` ← for embedding in other pages
+- Direct CDN URL: `https://cdnapi-ev.kaltura.com/p/{PID}/raw/entry_id/{EID}/direct_serve/1/forceproxy/true/dist.html?v={VERSION}` ← alternative iframe src
 - Version deployed, file size
 - "Test it now? Open the short link in a browser."
+
+**Note on iframe embedding:** The `/tiny/` short URL performs a 301 redirect through `http://` which browsers block in mixed-content iframes. For iframe embedding, always use the `proxy/true` goto URL or the direct CDN URL above.
 
 ### Constraints
 - NEVER write admin secret into dist.html, project.json, or any committed file

@@ -70,6 +70,9 @@
   var resumeNavSuppressed = false;
   var lastUserSpeechText = '';
   var pendingSequentialCheck = null;
+  var commandHandledNavAt = 0;
+  var lastChatMsg = '';
+  var lastChatRole = '';
 
   // ─── Session Memory (localStorage) ─────────────────────────────────────────────
 
@@ -182,6 +185,11 @@
     els.btnCloseContact = document.getElementById('btn-close-contact');
     els.btnContactSkip = document.getElementById('btn-contact-skip');
     els.btnContactSubmit = document.getElementById('btn-contact-submit');
+    els.tocSidebar = document.getElementById('toc-sidebar');
+    els.btnTocToggle = document.getElementById('btn-toc-toggle');
+    els.chatLog = document.getElementById('chat-log');
+    els.chatLogWrapper = document.getElementById('chat-log-wrapper');
+    els.btnChatToggle = document.getElementById('btn-chat-toggle');
   }
 
   // ─── PDF Rendering ─────────────────────────────────────────────────────────────
@@ -191,6 +199,12 @@
     if (!pdfUrl) {
       log('[PDF] No pdfUrl in CONFIG — slide rendering disabled');
       return;
+    }
+    var cacheBust = typeof APP_VERSION !== 'undefined' ? APP_VERSION : (CONFIG.version || '');
+    if (cacheBust && pdfUrl.indexOf('?') === -1) {
+      pdfUrl += '?v=' + cacheBust;
+    } else if (cacheBust) {
+      pdfUrl += '&v=' + cacheBust;
     }
     try {
       pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -412,6 +426,7 @@
     }
     renderPage(currentPage);
     updateSlideUI();
+    updateTOCHighlight(currentPage);
 
     if (userInitiated && sdk && avatarReady) {
       scheduleAvatarNotification(reason === 'autoplay' ? 0 : undefined);
@@ -786,6 +801,10 @@
     sdk.on('avatar-text-ready', function (payload) {
       var text = (payload && payload.fullText) || (payload && payload.text) || '';
       log('[Avatar] Text ready:', text.substring(0, 80));
+      if (Date.now() - commandHandledNavAt < 500) {
+        log('[Avatar] Skipping parseAvatarNavigation — command already handled');
+        return;
+      }
       parseAvatarNavigation(text);
     });
 
@@ -793,6 +812,7 @@
       var text = (payload && payload.text) || '';
       log('[Avatar] Speech:', text.substring(0, 80));
       addTranscriptEntry('Avatar', text);
+      addChatMessage('avatar', text);
       detectContactAsk(text);
       lastAvatarResponseEndedWithQuestion = /\?\s*$/.test(text.trim());
     });
@@ -830,6 +850,7 @@
         resolvePendingSequentialCheck(payload.text);
         lastUserSpeech = payload.text;
         addTranscriptEntry('User', payload.text);
+        addChatMessage('user', payload.text);
         if (!avatarSpeaking) scheduleAutoPlay();
         if (payload.text.length > 10 && /\?|tell me|what|how|why|show me|explain/i.test(payload.text)) {
           userQuestions.push(payload.text.substring(0, 100));
@@ -975,7 +996,8 @@
     }
     try {
       sdk.registerCommand('navigate-slide', 'navigating to slide', function (match) {
-        var navMatch = match.text.toLowerCase().match(/slide\s+([\w\s-]+?)(?:\.|,|!|$)/);
+        commandHandledNavAt = Date.now();
+        var navMatch = match.text.toLowerCase().match(/slide\s*([\w\s-]+?)(?:\.|,|!|$)/);
         if (navMatch) {
           var cmdTarget = parseSlideNumber(navMatch[1].trim());
           if (cmdTarget && cmdTarget === currentPage) return;
@@ -983,16 +1005,16 @@
         parseAvatarNavigation(match.text);
       }, { timing: 'before', debounce: 150 });
 
-      sdk.registerCommand('next-slide', 'next slide', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('prev-slide', 'previous slide', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('going-back-slide', 'going back to slide', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('skipping-slide', 'skipping to slide', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('move-to-slide', 'move to slide', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('let-me-show', 'let me show you', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('continue-pres', 'continuing the presentation', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('resume-pres', 'resuming the presentation', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('picking-up', 'picking up where', function (match) { parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
-      sdk.registerCommand('end-session', 'ending presentation now', function (match) { endSession(); }, { timing: 'before' });
+      sdk.registerCommand('next-slide', 'next slide', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('prev-slide', 'previous slide', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('going-back-slide', 'going back to slide', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('skipping-slide', 'skipping to slide', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('move-to-slide', 'move to slide', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('let-me-show', 'let me show you', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('continue-pres', 'continuing the presentation', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('resume-pres', 'resuming the presentation', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('picking-up', 'picking up where', function (match) { commandHandledNavAt = Date.now(); parseAvatarNavigation(match.text); }, { timing: 'before', debounce: 150 });
+      sdk.registerCommand('end-session', 'ending presentation now', function (match) { commandHandledNavAt = Date.now(); endSession(); }, { timing: 'before' });
 
       log('[Avatar] Commands registered');
     } catch (err) {
@@ -1237,6 +1259,7 @@
         lastSentText = question;
         sdk.sendText(question);
         addTranscriptEntry('User', question);
+        addChatMessage('user', question);
         els.chatInput.value = '';
       } else {
         showToast('Avatar not connected — cannot send question', 'error');
@@ -1445,12 +1468,7 @@
     els.videoOverlay.style.background = '';
     videoOverlayActive = false;
     log('[GenUI] Video overlay closed');
-    if (autoPlayEnabled && sdk && avatarReady) {
-      var slide = SLIDE_DATA[currentPage - 1];
-      sdk.sendText('I finished watching. We are on slide ' + currentPage + ': "' + slide.title + '". Please continue.');
-    } else {
-      scheduleAutoPlay();
-    }
+    scheduleAutoPlay();
   }
 
   function showLinkOverlay(data) {
@@ -1691,7 +1709,10 @@
     // PDF link in header
     var pdfLink = document.getElementById('btn-download-pdf');
     if (pdfLink && CONFIG.deck && CONFIG.deck.pdfUrl) {
-      pdfLink.href = CONFIG.deck.pdfUrl;
+      var pdfHref = CONFIG.deck.pdfUrl;
+      var ver = typeof APP_VERSION !== 'undefined' ? APP_VERSION : (CONFIG.version || '');
+      if (ver) pdfHref += (pdfHref.indexOf('?') === -1 ? '?' : '&') + 'v=' + ver;
+      pdfLink.href = pdfHref;
     }
 
     // Version tag
@@ -1738,6 +1759,108 @@
     return false;
   }
 
+  // ─── TOC Sidebar ──────────────────────────────────────────────────────────────
+
+  function initTOC() {
+    if (!els.tocSidebar || !els.btnTocToggle) return;
+    if (CONFIG.features && CONFIG.features.toc === false) {
+      els.tocSidebar.style.display = 'none';
+      return;
+    }
+
+    els.btnTocToggle.addEventListener('click', function () {
+      els.tocSidebar.classList.toggle('open');
+    });
+
+    var sections = els.tocSidebar.querySelectorAll('.toc-section');
+    if (!sections.length) return;
+
+    sections.forEach(function (section) {
+      var start = parseInt(section.dataset.start, 10);
+      var end = parseInt(section.dataset.end, 10);
+      var titleEl = section.querySelector('.toc-section-title');
+      var slidesEl = section.querySelector('.toc-slides');
+      if (!titleEl || !slidesEl) return;
+
+      titleEl.addEventListener('click', function () {
+        var wasExpanded = section.classList.contains('expanded');
+        sections.forEach(function (s) { s.classList.remove('expanded'); });
+        if (!wasExpanded) section.classList.add('expanded');
+      });
+
+      for (var i = start; i <= end; i++) {
+        var slide = SLIDE_DATA[i - 1];
+        if (!slide) continue;
+        var item = document.createElement('div');
+        item.className = 'toc-slide-item';
+        item.dataset.slide = i;
+        item.textContent = i + '. ' + (slide.title || 'Slide ' + i);
+        item.addEventListener('click', (function (num) {
+          return function () {
+            nextNavReason = 'user_btn';
+            goToSlide(num, true);
+            if (window.innerWidth < 768) els.tocSidebar.classList.remove('open');
+          };
+        })(i));
+        slidesEl.appendChild(item);
+      }
+    });
+
+    updateTOCHighlight(currentPage);
+  }
+
+  function updateTOCHighlight(slideNum) {
+    if (!els.tocSidebar) return;
+    els.tocSidebar.querySelectorAll('.toc-slide-item.current').forEach(function (el) {
+      el.classList.remove('current');
+    });
+    var item = els.tocSidebar.querySelector('.toc-slide-item[data-slide="' + slideNum + '"]');
+    if (item) {
+      item.classList.add('current');
+      var section = item.closest('.toc-section');
+      if (section && !section.classList.contains('expanded')) {
+        els.tocSidebar.querySelectorAll('.toc-section').forEach(function (s) { s.classList.remove('expanded'); });
+        section.classList.add('expanded');
+      }
+      els.tocSidebar.querySelectorAll('.toc-section').forEach(function (s) { s.classList.remove('active'); });
+      if (section) section.classList.add('active');
+    }
+  }
+
+  // ─── Chat Log ────────────────────────────────────────────────────────────────
+
+  function addChatMessage(role, text) {
+    if (!els.chatLog || !text) return;
+    if (CONFIG.features && CONFIG.features.chatLog === false) return;
+    var cleaned = text.trim().replace(/<[^>]+>/g, '');
+    if (!cleaned || cleaned.length < 3) return;
+    if (role === lastChatRole && cleaned === lastChatMsg) return;
+    lastChatMsg = cleaned;
+    lastChatRole = role;
+
+    var msg = document.createElement('div');
+    msg.className = 'chat-msg chat-msg-' + role;
+    msg.textContent = cleaned;
+    els.chatLog.appendChild(msg);
+    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+
+    while (els.chatLog.children.length > 6) {
+      els.chatLog.removeChild(els.chatLog.firstChild);
+    }
+  }
+
+  function initChatToggle() {
+    if (!els.btnChatToggle || !els.chatLogWrapper) return;
+    if (CONFIG.features && CONFIG.features.chatLog === false) {
+      els.chatLogWrapper.style.display = 'none';
+      return;
+    }
+    els.chatLogWrapper.classList.add('visible');
+    els.btnChatToggle.addEventListener('click', function () {
+      els.chatLogWrapper.classList.toggle('visible');
+    });
+  }
+
   // ─── Initialization ──────────────────────────────────────────────────────────
 
   function handleStart() {
@@ -1774,6 +1897,8 @@
     slidesPresented.add(1);
     bindEvents();
     initDrag();
+    initTOC();
+    initChatToggle();
     updateSlideUI();
     await loadPDF();
 

@@ -7,6 +7,18 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#0f0f1a">
 
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{TITLE}}">
+    <meta property="og:description" content="{{OG_DESCRIPTION}}">
+    <meta property="og:image" content="{{OG_IMAGE}}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{TITLE}}">
+    <meta name="twitter:description" content="{{OG_DESCRIPTION}}">
+    <meta name="twitter:image" content="{{OG_IMAGE}}">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -103,6 +115,18 @@
             </div>
         </div>
 
+        <!-- Sidebar Table of Contents -->
+        <nav id="toc-sidebar" class="toc-sidebar" aria-label="Presentation sections">
+            <button id="btn-toc-toggle" class="toc-toggle" aria-label="Toggle table of contents" title="Table of Contents">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <div class="toc-content">
+                <!-- Populated at bundle time with .toc-section divs -->
+            </div>
+        </nav>
+
         <!-- Main presentation area -->
         <main class="presentation-wrapper hidden" id="presentation-wrapper" role="main" aria-label="Presentation">
             <div id="presentation-container" class="presentation-container" role="region" aria-label="Slide viewer">
@@ -120,9 +144,8 @@
                         <span>Connecting avatar...</span>
                     </div>
                     <div id="avatar-pause-overlay" class="avatar-pause-overlay hidden">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="white" opacity="0.9">
-                            <rect x="6" y="4" width="4" height="16" rx="1"/>
-                            <rect x="14" y="4" width="4" height="16" rx="1"/>
+                        <svg width="56" height="56" viewBox="0 0 24 24" fill="white" opacity="0.95">
+                            <path d="M8 5v14l11-7z"/>
                         </svg>
                     </div>
                     <div class="avatar-pip-grab-dots" aria-hidden="true">
@@ -137,6 +160,14 @@
 
                 <!-- Video overlay container (GenUI) -->
                 <div id="video-overlay-container" class="video-overlay hidden"></div>
+
+                <!-- Chat log overlay -->
+                <div id="chat-log-wrapper" class="chat-log-wrapper">
+                    <div id="chat-log" class="chat-log" aria-label="Conversation history" role="log" aria-live="polite"></div>
+                    <button id="btn-chat-toggle" class="chat-toggle" aria-label="Toggle conversation log" title="Show/hide conversation">
+                        <span></span><span></span><span></span>
+                    </button>
+                </div>
 
                 <!-- Slide number badge -->
                 <div class="slide-badge" aria-live="polite">
