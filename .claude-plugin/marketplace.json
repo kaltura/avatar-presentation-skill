@@ -1,20 +1,17 @@
 {
   "name": "avatar-presentation-skill",
-  "id": "avatar-presentation-skill",
   "owner": { "name": "Kaltura" },
-  "metadata": {
-    "description": "AI-narrated presentation builder for Kaltura's conversational avatar platform",
-    "version": "2.0.0"
-  },
   "plugins": [
     {
       "name": "avatar-deck",
-      "description": "Generate deployable avatar presentations from PDF decks",
+      "description": "Generate deployable AI-narrated avatar presentations from PDF decks",
       "source": "./",
-      "version": "2.0.0",
+      "version": "2.2.0",
       "author": { "name": "Kaltura" },
+      "homepage": "https://github.com/kaltura/avatar-presentation-skill",
+      "license": "MIT",
       "category": "development",
-      "keywords": ["avatar", "presentation", "kaltura"]
+      "keywords": ["avatar", "presentation", "kaltura", "ai-narrated"]
     }
   ]
 }

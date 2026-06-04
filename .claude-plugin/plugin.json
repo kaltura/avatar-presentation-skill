@@ -1,8 +1,10 @@
 {
   "name": "avatar-deck",
   "description": "Conversational Avatar Presentation Builder — generate complete, compliant, deployable avatar presentations from a PDF deck and website URL using Claude Code.",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "author": { "name": "Kaltura" },
+  "homepage": "https://github.com/kaltura/avatar-presentation-skill",
+  "repository": "https://github.com/kaltura/avatar-presentation-skill",
   "license": "MIT",
   "keywords": ["avatar", "presentation", "kaltura", "interactive", "ai-narrated"],
   "skills": ["./skills/avatar-deck"]

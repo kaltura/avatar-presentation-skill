@@ -8,8 +8,11 @@ Give it a PDF and an avatar URL — it produces a single deployable `dist.html` 
 
 ### Install
 
+Add the marketplace, then install the plugin:
+
 ```
-/install github.com/kaltura/avatar-presentation-skill
+/plugin marketplace add kaltura/avatar-presentation-skill
+/plugin install avatar-deck@avatar-presentation-skill
 ```
 
 ### Run
